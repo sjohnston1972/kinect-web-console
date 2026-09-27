@@ -195,15 +195,15 @@ Each take is `captures/mocap/<id>.json`, and the page loads it from `/captures/m
 
 ## BVH files
 
-`captures/mocap/<id>.bvh`, made by `export` with `format: "bvh"`. For Blender: File, Import, Motion Capture (.bvh), default settings.
+`captures/mocap/<id>.bvh` (or `<id>-mixamo.bvh` with Mixamo-style names), made by `export` with `format: "bvh"` (add `names: "mixamo"` for the second). For Blender: File, Import, Motion Capture (.bvh), default settings.
 
-- One person: the one tracked in the most frames. Standing takes only (seated takes have no hips or legs).
-- Units are metres, Y up. The take is placed for Blender: levelled using the floor the Kinect detected (which undoes the Kinect's tilt), standing on the floor at height 0, centred on where the hips usually are, and turned so the person faces Blender's front view. Only the root is moved and turned, so the motion itself is unchanged.
-- The root `Hips` sits at the hip centre, with position and rotation channels. Every other joint is one Kinect bone, named for the body part (`LowerSpine`, `UpperSpine`, `Neck`, `CollarLeft`, `UpperArmLeft`, `ForearmLeft`, `HandLeft`, `PelvisLeft`, `ThighLeft`, `ShinLeft`, `FootLeft`, and the same on the right). Each starts where its parent bone ends, along the parent's +Y, so its rotation is exactly the SDK's hierarchical rotation.
-- Rotation channels are `Zrotation Xrotation Yrotation`. Bone lengths are each bone's middle length over the take.
+- One person: the one tracked in the most frames. Standing takes only (seated takes have no hips or legs). Only the trimmed part, if the take is trimmed.
+- Units are metres, Y up. The take is levelled using the floor the Kinect detected (undoing its tilt), stood on the floor at height 0, centred on where the hips usually are, and turned to face Blender's front view. Frames where a foot would sink below the floor are lifted (the reply's `note` says how many).
+- The root `Hips` sits at the hip centre, with position and rotation channels. Every other joint is one Kinect bone, starting where its parent bone ends. Names: `LowerSpine`, `UpperSpine`, `Neck`, `CollarLeft`, `UpperArmLeft`, `ForearmLeft`, `HandLeft`, `PelvisLeft`, `ThighLeft`, `ShinLeft`, `FootLeft` and the same on the right; or with Mixamo-style names `Spine`, `Spine1`, `Neck`, `LeftShoulder`, `LeftArm`, `LeftForeArm`, `LeftHand`, `LeftHipJoint`, `LeftUpLeg`, `LeftLeg`, `LeftFoot` and the same on the right.
+- The rest pose (all rotations zero) is a T-pose facing +Z: arms straight out, legs straight down, and the spine, neck, collar bones, hip bones and feet in the person's own typical directions. Each frame's rotations are the SDK's hierarchical bone orientations converted to turn that T-pose into the recorded pose.
+- Rotation channels are `Zrotation Xrotation Yrotation`. Bone lengths are each bone's middle length over the take. The spine starts 4 mm above the hips so Blender does not see a zero-length Hips bone.
 - Frames are evened out to exactly 30 a second; a joint missing from a frame keeps its last rotation.
-- The export rebuilds every joint from the BVH and reports the average distance from where the Kinect saw it (the `note` in the reply). About 3 cm is typical for a real take: the Kinect's own bone lengths wobble slightly from frame to frame, and the BVH uses fixed lengths.
-
+- The export rebuilds every joint from the file as written and reports the average distance from where the Kinect saw it (the `note`). About 3 cm is typical for a real take: the Kinect's own bone lengths wobble slightly from frame to frame, and the BVH uses fixed lengths.
 ## The fusion message
 
 ```json

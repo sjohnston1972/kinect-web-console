@@ -140,6 +140,7 @@ namespace KinectBridge.Mocap
 
         public string JsonPath(string id) => Path.Combine(folder, id + ".json");
         public string BvhPath(string id) => Path.Combine(folder, id + ".bvh");
+        public string MixamoBvhPath(string id) => Path.Combine(folder, id + "-mixamo.bvh");
 
         /// <summary>Saves a new take. Returns its details.</summary>
         public TakeInfo Save(Dictionary<string, object> take, string fileStem)
@@ -209,7 +210,8 @@ namespace KinectBridge.Mocap
                 if (!string.Equals(newId, id, StringComparison.OrdinalIgnoreCase))
                 {
                     File.Delete(JsonPath(id));
-                    if (File.Exists(BvhPath(id))) File.Delete(BvhPath(id));   // exported under the old name; export again
+                    foreach (var old in new[] { BvhPath(id), MixamoBvhPath(id) })
+                        if (File.Exists(old)) File.Delete(old);   // exported under the old name; export again
                     takes.Remove(id);
                 }
                 var info = ReadInfo(newId, take);
@@ -224,7 +226,7 @@ namespace KinectBridge.Mocap
             lock (gate)
             {
                 if (!takes.ContainsKey(id)) throw new FileNotFoundException("That take no longer exists.");
-                foreach (var path in new[] { JsonPath(id), BvhPath(id) })
+                foreach (var path in new[] { JsonPath(id), BvhPath(id), MixamoBvhPath(id) })
                     if (File.Exists(path))
                     {
                         if (useRecycleBin) FileSystem.DeleteFile(path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);

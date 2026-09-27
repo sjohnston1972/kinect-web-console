@@ -235,6 +235,17 @@ try {
             $head = [Text.Encoding]::ASCII.GetString((DownloadBytes ("$origin" + $bvh.url)), 0, 9)
             @(($cm -lt 2 -and $head -eq 'HIERARCHY'), "$cm cm")
         }
+        # Issue #9: Mixamo names, a T-pose rest (forearm offset straight out along +X), feet kept on the floor
+        Send $c ('{"type":"export","v":1,"kind":"take","format":"bvh","id":"' + $id + '","names":"mixamo"}')
+        $mix = WaitFor $c '"type":"(export|error)"' 20
+        Check "BVH with Mixamo names has a T-pose rest pose (issue #9)" {
+            if (-not $mix -or -not $mix.url) { return "no export" }
+            $text = (New-Object Net.WebClient).DownloadString("$origin" + $mix.url)
+            $forearm = [regex]::Match($text, 'JOINT LeftForeArm\s*\{\s*OFFSET ([-\d.]+) ([-\d.]+) ([-\d.]+)')
+            $x = [double]$forearm.Groups[1].Value; $y = [double]$forearm.Groups[2].Value
+            @(($text -match 'ROOT Hips' -and $text -match 'JOINT LeftUpLeg' -and $x -gt 0.15 -and [math]::Abs($y) -lt 0.01), "LeftForeArm offset $x, $y; $($mix.name)")
+        }
+
         # Issue #8: trimming keeps only part of the take for playback and export
         Send $c ('{"type":"mocap.trim","v":1,"id":"' + $id + '","start":0.5,"end":1.5}')
         $trimmed = WaitFor $c '"kind":"trimmed"' 5

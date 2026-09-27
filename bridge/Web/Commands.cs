@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using KinectBridge.Fusion;
@@ -138,7 +139,8 @@ namespace KinectBridge.Web
                     return;
                 }
                 if (format != "bvh") { MessageHub.SendError(client, "badExport", "Takes export as bvh or json."); return; }
-                Task.Run(() => ExportTake(client, takes, id));
+                var mixamo = msg.TryGetValue("names", out var n) && n as string == "mixamo";
+                Task.Run(() => ExportTake(client, takes, id, mixamo));
             });
 
             hub.On("fusion.start", (client, msg) =>
@@ -192,15 +194,18 @@ namespace KinectBridge.Web
         }
 
         /// <summary>Makes the BVH file for a take and replies with its download link. Runs in the background.</summary>
-        static void ExportTake(ClientConnection client, TakeLibrary takes, string id)
+        static void ExportTake(ClientConnection client, TakeLibrary takes, string id, bool mixamo)
         {
             try
             {
-                var result = BvhExporter.Export(takes.Load(id), takes.BvhPath(id));
+                var path = mixamo ? takes.MixamoBvhPath(id) : takes.BvhPath(id);
+                var name = Path.GetFileName(path);
+                var result = BvhExporter.Export(takes.Load(id), path, mixamo);
                 var note = $"{result.Frames} frames at 30 per second. Joints land on average {result.AverageErrorCm:0.0} cm from where the Kinect saw them."
+                    + (result.LiftedFrames > 0 ? $" {result.LiftedFrames} frames were lifted so the feet stay on the floor." : "")
                     + (result.PeopleInTake > 1 ? $" The take has {result.PeopleInTake} people; the BVH holds the one tracked longest." : "");
-                Log.Info($"Exported {id}.bvh: {note}");
-                MessageHub.Send(client, new { type = "export", v = MessageHub.ProtocolVersion, kind = "take", id, format = "bvh", name = id + ".bvh", url = TakeUrl(id + ".bvh"), note });
+                Log.Info($"Exported {name}: {note}");
+                MessageHub.Send(client, new { type = "export", v = MessageHub.ProtocolVersion, kind = "take", id, format = "bvh", names = mixamo ? "mixamo" : "kinect", name, url = TakeUrl(name), note });
             }
             catch (InvalidOperationException ex) { MessageHub.SendError(client, "exportFailed", ex.Message); }
             catch (Exception ex)

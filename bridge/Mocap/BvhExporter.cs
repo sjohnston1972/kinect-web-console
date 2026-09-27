@@ -12,17 +12,23 @@ namespace KinectBridge.Mocap
     /// Turns a take into a BVH file, the motion capture format Blender imports (File, Import, Motion Capture).
     ///
     /// How the Kinect skeleton maps onto BVH:
-    /// - The root, "Hips", sits at the hip centre and moves with it. Its rotation is the SDK's rotation for the hips.
+    /// - The root, "Hips", sits at the hip centre and moves with it.
     /// - Every other BVH joint is one Kinect bone (for example "UpperArmLeft" runs shoulder to elbow), starting
-    ///   where its parent bone ends. Each bone points along its own +Y, the SDK's convention, so its rotation
-    ///   is exactly the SDK's hierarchical bone orientation for that bone.
-    /// - Bone lengths are the typical distances between the joints over the whole take.
-    /// Units are metres, in the Kinect's own axes: Y up, and the person facing -Z (towards the Kinect).
+    ///   where its parent bone ends. Bone lengths are the typical distances between the joints over the take.
+    /// - The rest pose (the skeleton with every rotation at zero) is a T-pose facing +Z: arms straight out,
+    ///   legs straight down, and the spine, collar bones, hips and feet in the person's own typical shape.
+    ///   That is what retargeting tools expect when putting the motion onto another character.
+    /// - Each frame's rotations are the SDK's bone orientations, converted to turn that T-pose into the
+    ///   recorded pose: a bone's rotation = its SDK orientation x the fixed turn from its T-pose direction to the
+    ///   SDK's "bones point along +Y" convention, relative to its parent bone's.
+    /// Units are metres, Y up. The take is levelled, stood on the floor, centred and turned to face Blender's
+    /// front view (PlaceOnFloor), and frames where a foot would sink below the floor are lifted.
     /// Frames are evened out to exactly 30 a second.
     /// </summary>
     static class BvhExporter
     {
         const double FramesPerSecond = 30;
+        const double RootNubMetres = 0.004;   // a small offset so Blender does not see a zero-length Hips bone (it averages the 3 children: 1.3 mm, over its 1 mm limit)
 
         // BVH name for the bone ending at each Kinect joint (index = joint number); the hip centre is the root
         static readonly string[] BoneNames =
@@ -34,7 +40,18 @@ namespace KinectBridge.Mocap
             "PelvisRight", "ThighRight", "ShinRight", "FootRight",
         };
 
+        // The same bones with the names Mixamo characters and most retargeting tools use
+        static readonly string[] MixamoNames =
+        {
+            "Hips", "Spine", "Spine1", "Neck",
+            "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand",
+            "RightShoulder", "RightArm", "RightForeArm", "RightHand",
+            "LeftHipJoint", "LeftUpLeg", "LeftLeg", "LeftFoot",
+            "RightHipJoint", "RightUpLeg", "RightLeg", "RightFoot",
+        };
+
         static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
+        static readonly int[] Feet = { Joints.FootLeft, Joints.FootRight, Joints.AnkleLeft, Joints.AnkleRight };
 
         public class Result
         {
@@ -42,16 +59,18 @@ namespace KinectBridge.Mocap
             public int PersonId;
             public int PeopleInTake;
             public double AverageErrorCm;   // how far the BVH's joints land from the recorded ones
+            public int LiftedFrames;        // frames raised so the feet stay on or above the floor
         }
 
         class Pose
         {
             public double T;   // seconds
             public readonly Vec3?[] Position = new Vec3?[Joints.Count];
-            public readonly Quat?[] Rotation = new Quat?[Joints.Count];
+            public readonly Quat?[] Rotation = new Quat?[Joints.Count];   // SDK hierarchical rotations
+            public readonly Quat[] Absolute = new Quat[Joints.Count];     // each bone's rotation in the room
         }
 
-        public static Result Export(Dictionary<string, object> take, string path)
+        public static Result Export(Dictionary<string, object> take, string path, bool mixamoNames = false)
         {
             if (take["mode"] as string == "seated")
                 throw new InvalidOperationException("BVH needs a take recorded in Standing mode. Seated mode has no hips or legs to build the skeleton from.");
@@ -72,30 +91,61 @@ namespace KinectBridge.Mocap
             var order = DepthFirstOrder();
             var frames = Resample(poses);
             PlaceOnFloor(frames, take.TryGetValue("floor", out var f) ? f as object[] : null);
+            foreach (var pose in frames) FillAbsolute(pose);
+
+            // The person's own frame relative to the hips (left, up, forward), and each bone's T-pose direction
+            var body = PersonFrame(frames);
+            var rest = RestDirections(frames, body);
+            var toSdk = rest.Select(d => Quat.Between(d, Vec3.Up)).ToArray();   // T-pose direction to the SDK's +Y
 
             var bvh = new StringBuilder();
             bvh.AppendLine("HIERARCHY");
-            WriteHierarchy(bvh, lengths);
+            WriteHierarchy(bvh, lengths, rest, mixamoNames ? MixamoNames : BoneNames);
             bvh.AppendLine("MOTION");
             bvh.AppendLine("Frames: " + frames.Count);
             bvh.AppendLine("Frame Time: " + (1 / FramesPerSecond).ToString("0.0000000", Invariant));
 
             double errorSum = 0;
-            int errorCount = 0;
+            int errorCount = 0, lifted = 0;
             foreach (var pose in frames)
             {
-                var hip = pose.Position[Joints.HipCenter].Value;
-                var values = new List<double> { hip.X, hip.Y, hip.Z };
-                var usedRotations = new Quat[Joints.Count];
+                // Each bone's rotation in the room, measured from the T-pose, then relative to its parent bone
+                var global = new Quat[Joints.Count];
+                var local = new Quat[Joints.Count];
+                global[Joints.HipCenter] = pose.Absolute[Joints.HipCenter] * body;
+                local[Joints.HipCenter] = global[Joints.HipCenter];
+                for (int j = 1; j < Joints.Count; j++)
+                {
+                    global[j] = pose.Absolute[j] * toSdk[j];
+                    local[j] = global[Joints.Parent[j]].Inverse * global[j];
+                }
+
+                // The angles as written, turned back into rotations, so the check below tests the file itself
+                var written = new Quat[Joints.Count];
+                var angles = new List<double>();
                 foreach (var j in order)
                 {
-                    var q = (pose.Rotation[j] ?? Quat.Identity).Normalised;
-                    q.ToEulerZXY(out var z, out var x, out var y);
-                    values.Add(z); values.Add(x); values.Add(y);
-                    usedRotations[j] = Quat.FromEulerZXY(z, x, y);   // check the angles, not just the quaternions
+                    local[j].Normalised.ToEulerZXY(out var z, out var x, out var y);
+                    angles.Add(z); angles.Add(x); angles.Add(y);
+                    written[j] = Quat.FromEulerZXY(z, x, y);
                 }
+
+                var hip = pose.Position[Joints.HipCenter].Value;
+                var rebuilt = Rebuild(hip, written, lengths, rest);
+                for (int j = 1; j < Joints.Count; j++)
+                {
+                    if (pose.Position[j] == null) continue;
+                    errorSum += (rebuilt[j] - pose.Position[j].Value).Length;
+                    errorCount++;
+                }
+
+                // Never let a foot sink through the floor: fixed bone lengths can push it a little low
+                var lowest = Feet.Min(j => rebuilt[j].Y);
+                if (lowest < 0) { hip = hip + new Vec3(0, -lowest, 0); lifted++; }
+
+                var values = new List<double> { hip.X, hip.Y, hip.Z };
+                values.AddRange(angles);
                 bvh.AppendLine(string.Join(" ", values.Select(v => v.ToString("0.#####", Invariant))));
-                Measure(pose, usedRotations, lengths, ref errorSum, ref errorCount);
             }
 
             File.WriteAllText(path, bvh.ToString(), new UTF8Encoding(false));
@@ -105,6 +155,7 @@ namespace KinectBridge.Mocap
                 PersonId = personId,
                 PeopleInTake = people,
                 AverageErrorCm = errorCount > 0 ? Math.Round(errorSum / errorCount * 100, 2) : 0,
+                LiftedFrames = lifted,
             };
         }
 
@@ -178,17 +229,80 @@ namespace KinectBridge.Mocap
             return order;
         }
 
-        static void WriteHierarchy(StringBuilder bvh, double[] lengths)
+        /// <summary>Each bone's rotation in the room: its parent's, then its own SDK rotation relative to that.</summary>
+        static void FillAbsolute(Pose pose)
         {
+            pose.Absolute[Joints.HipCenter] = (pose.Rotation[Joints.HipCenter] ?? Quat.Identity).Normalised;
+            for (int j = 1; j < Joints.Count; j++)
+                pose.Absolute[j] = (pose.Absolute[Joints.Parent[j]] * (pose.Rotation[j] ?? Quat.Identity)).Normalised;
+        }
+
+        /// <summary>
+        /// The person's own left, up and forward, as seen from the hips' SDK frame, averaged over the take.
+        /// Up runs from the hip centre to the shoulders; left from the right hip to the left hip.
+        /// With left as X and up as Y, forward is X x Y, so a person in this frame faces +Z.
+        /// </summary>
+        static Quat PersonFrame(List<Pose> frames)
+        {
+            var up = new Vec3(); var left = new Vec3();
+            foreach (var p in frames)
+            {
+                var toHips = p.Absolute[Joints.HipCenter].Inverse;
+                if (p.Position[Joints.ShoulderCenter] != null)
+                    up = up + toHips.Rotate((p.Position[Joints.ShoulderCenter].Value - p.Position[Joints.HipCenter].Value).Normalised);
+                if (p.Position[Joints.HipLeft] != null && p.Position[Joints.HipRight] != null)
+                    left = left + toHips.Rotate((p.Position[Joints.HipLeft].Value - p.Position[Joints.HipRight].Value).Normalised);
+            }
+            up = up.Normalised;
+            left = (left - up * Vec3.Dot(left, up)).Normalised;
+            return Quat.FromAxes(left, up, Vec3.Cross(left, up));
+        }
+
+        /// <summary>
+        /// Each bone's direction in the T-pose, in the person's frame (left +X, up +Y, forward +Z).
+        /// Arms point straight out and legs straight down. The spine, neck, collar bones, hip bones and feet
+        /// keep the person's own typical direction, averaged over the take, so the rest pose looks like them.
+        /// </summary>
+        static Vec3[] RestDirections(List<Pose> frames, Quat body)
+        {
+            var rest = new Vec3[Joints.Count];
+            var outLeft = new Vec3(1, 0, 0); var outRight = new Vec3(-1, 0, 0); var down = new Vec3(0, -1, 0);
+            foreach (var j in new[] { Joints.ElbowLeft, Joints.WristLeft, Joints.HandLeft }) rest[j] = outLeft;
+            foreach (var j in new[] { Joints.ElbowRight, Joints.WristRight, Joints.HandRight }) rest[j] = outRight;
+            foreach (var j in new[] { Joints.KneeLeft, Joints.AnkleLeft, Joints.KneeRight, Joints.AnkleRight }) rest[j] = down;
+
+            var typical = new Dictionary<int, Vec3>
+            {
+                [Joints.Spine] = Vec3.Up, [Joints.ShoulderCenter] = Vec3.Up, [Joints.Head] = Vec3.Up,
+                [Joints.ShoulderLeft] = outLeft, [Joints.ShoulderRight] = outRight,
+                [Joints.HipLeft] = new Vec3(1, -0.5, 0).Normalised, [Joints.HipRight] = new Vec3(-1, -0.5, 0).Normalised,
+                [Joints.FootLeft] = new Vec3(0, -0.4, 1).Normalised, [Joints.FootRight] = new Vec3(0, -0.4, 1).Normalised,
+            };
+            foreach (var j in typical.Keys)
+            {
+                var sum = new Vec3();
+                foreach (var p in frames)
+                {
+                    var parent = Joints.Parent[j];
+                    if (p.Position[j] == null || p.Position[parent] == null) continue;
+                    var toPerson = (p.Absolute[Joints.HipCenter] * body).Inverse;
+                    sum = sum + toPerson.Rotate((p.Position[j].Value - p.Position[parent].Value).Normalised);
+                }
+                rest[j] = sum.Length > 1e-6 ? sum.Normalised : typical[j];
+            }
+            return rest;
+        }
+
+        static void WriteHierarchy(StringBuilder bvh, double[] lengths, Vec3[] rest, string[] names)
+        {
+            string V(Vec3 v) => $"{v.X.ToString("0.#####", Invariant)} {v.Y.ToString("0.#####", Invariant)} {v.Z.ToString("0.#####", Invariant)}";
             void Bone(int j, int depth)
             {
                 var pad = new string('\t', depth);
                 var parent = Joints.Parent[j];
-                bvh.AppendLine(pad + (parent < 0 ? "ROOT " : "JOINT ") + BoneNames[j]);
+                bvh.AppendLine(pad + (parent < 0 ? "ROOT " : "JOINT ") + names[j]);
                 bvh.AppendLine(pad + "{");
-                // A bone starts where its parent bone ends: along the parent's +Y. Bones leaving the hips start at the hips.
-                var offset = parent <= Joints.HipCenter ? 0 : lengths[parent];
-                bvh.AppendLine($"{pad}\tOFFSET 0 {offset.ToString("0.#####", Invariant)} 0");
+                bvh.AppendLine($"{pad}\tOFFSET {V(StartOffset(j, lengths, rest))}");
                 bvh.AppendLine(pad + (parent < 0
                     ? "\tCHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation"
                     : "\tCHANNELS 3 Zrotation Xrotation Yrotation"));
@@ -199,12 +313,46 @@ namespace KinectBridge.Mocap
                 {
                     bvh.AppendLine(pad + "\tEnd Site");
                     bvh.AppendLine(pad + "\t{");
-                    bvh.AppendLine($"{pad}\t\tOFFSET 0 {lengths[j].ToString("0.#####", Invariant)} 0");
+                    bvh.AppendLine($"{pad}\t\tOFFSET {V(rest[j] * lengths[j])}");
                     bvh.AppendLine(pad + "\t}");
                 }
                 bvh.AppendLine(pad + "}");
             }
             Bone(Joints.HipCenter, 0);
+        }
+
+        /// <summary>
+        /// Where a bone starts, relative to its parent BVH joint in the T-pose: at the end of the parent bone,
+        /// or at the hips for bones leaving the hips (the spine 4 mm up, so Hips has some length).
+        /// </summary>
+        static Vec3 StartOffset(int j, double[] lengths, Vec3[] rest)
+        {
+            var parent = Joints.Parent[j];
+            if (parent < 0) return new Vec3();
+            if (parent == Joints.HipCenter) return j == Joints.Spine ? new Vec3(0, RootNubMetres, 0) : new Vec3();
+            return rest[parent] * lengths[parent];
+        }
+
+        /// <summary>
+        /// Rebuilds every joint position from the hips and the rotations as written, the way Blender will,
+        /// bone by bone. Used to check the file against the recording, and to keep the feet above the floor.
+        /// </summary>
+        static Vec3[] Rebuild(Vec3 hip, Quat[] local, double[] lengths, Vec3[] rest)
+        {
+            var global = new Quat[Joints.Count];
+            var start = new Vec3[Joints.Count];     // where each BVH joint sits
+            var end = new Vec3[Joints.Count];       // where each bone ends: the Kinect joint position
+            global[Joints.HipCenter] = local[Joints.HipCenter];
+            start[Joints.HipCenter] = hip;
+            end[Joints.HipCenter] = hip;
+            for (int j = 1; j < Joints.Count; j++)
+            {
+                var parent = Joints.Parent[j];
+                global[j] = global[parent] * local[j];
+                start[j] = start[parent] + global[parent].Rotate(StartOffset(j, lengths, rest));
+                end[j] = start[j] + global[j].Rotate(rest[j] * lengths[j]);
+            }
+            return end;
         }
 
         /// <summary>
@@ -276,27 +424,6 @@ namespace KinectBridge.Mocap
                     if (pose.Position[j] != null) pose.Position[j] = whole.Rotate(pose.Position[j].Value) + shift;
                 if (pose.Rotation[Joints.HipCenter] != null)
                     pose.Rotation[Joints.HipCenter] = whole * pose.Rotation[Joints.HipCenter].Value;
-            }
-        }
-
-        /// <summary>
-        /// Rebuilds the joints the way Blender will (from the hips, bone by bone) and adds up how far
-        /// each lands from where the Kinect recorded it. A small number means the BVH moves like the person did.
-        /// </summary>
-        static void Measure(Pose pose, Quat[] rotation, double[] lengths, ref double sum, ref int count)
-        {
-            var absolute = new Quat[Joints.Count];
-            var position = new Vec3[Joints.Count];
-            absolute[Joints.HipCenter] = rotation[Joints.HipCenter];
-            position[Joints.HipCenter] = pose.Position[Joints.HipCenter].Value;
-            for (int j = 1; j < Joints.Count; j++)
-            {
-                var parent = Joints.Parent[j];
-                absolute[j] = absolute[parent] * rotation[j];
-                position[j] = position[parent] + absolute[j].Rotate(new Vec3(0, lengths[j], 0));
-                if (pose.Position[j] == null) continue;
-                sum += (position[j] - pose.Position[j].Value).Length;
-                count++;
             }
         }
     }

@@ -255,6 +255,10 @@
     $('export-note').textContent = 'Making the BVH file…';
     Connection.send({ type: 'export', kind: 'take', id: takeId, format: 'bvh' });
   });
+  $('export-bvh-mixamo').addEventListener('click', () => {
+    $('export-note').textContent = 'Making the BVH file with Mixamo bone names2026';
+    Connection.send({ type: 'export', kind: 'take', id: takeId, format: 'bvh', names: 'mixamo' });
+  });
   $('export-json').addEventListener('click', () => Connection.send({ type: 'export', kind: 'take', id: takeId, format: 'json' }));
 
   // ----- Messages -----
