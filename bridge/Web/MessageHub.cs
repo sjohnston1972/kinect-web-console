@@ -27,6 +27,9 @@ namespace KinectBridge.Web
         /// <summary>Builds the current status message. Set by StatusReporter.</summary>
         public Func<string> CurrentStatus;
 
+        /// <summary>Other messages a newly connected page needs straight away (such as the take list).</summary>
+        public readonly List<Func<string>> Greetings = new List<Func<string>>();
+
         public MessageHub()
         {
             Log.LineAdded += line => Broadcast(Json.Serialize(LogMessage(line)));
@@ -45,6 +48,7 @@ namespace KinectBridge.Web
             // Catch the new tab up: the current status and the recent log
             if (CurrentStatus != null) client.SendText(CurrentStatus(), "status");
             foreach (var line in Log.RecentLines()) client.SendText(Json.Serialize(LogMessage(line)));
+            foreach (var greeting in Greetings) client.SendText(greeting());
 
             lock (gate) clients.Add(client);
             Log.Info($"Browser {client.Id} connected");

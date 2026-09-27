@@ -27,6 +27,8 @@ Every JSON message is a text WebSocket message with a `type` and a protocol vers
 | `error` | The browser sent something the bridge could not act on | `code`, `message` (plain English) |
 | `snapshot` | Reply to a `snapshot` request | `files`: list of `{ name, url }` for the colour and depth PNG files |
 | `skeletons` | About 30 times a second while subscribed to `skeletons`. Newest-only | See below |
+| `mocap` | On connect, 4 times a second during a countdown or recording, and when anything changes | See below |
+| `export` | Reply to an `export` request | `kind`, `id`, `format`, `name` (file name), `url` (download link), and for BVH a `note` with the frame count and accuracy |
 
 `status` contents:
 
@@ -60,7 +62,7 @@ Every JSON message is a text WebSocket message with a `type` and a protocol vers
 
 Status is sent "newest only": if a browser falls behind, an unsent older status is replaced by the newer one.
 
-`error` codes: `badMessage` (not valid JSON, no `type`, or the handler failed), `badVersion`, `unknownType`, `badTilt` (no angle), `tiltRefused` (motor limits, or the sensor is not ready; the message says when to try again), `snapshotFailed`, `badSetting` (a skeleton setting that is not one of the allowed values).
+`error` codes: `badMessage` (not valid JSON, no `type`, or the handler failed), `badVersion`, `unknownType`, `badTilt` (no angle), `tiltRefused` (motor limits, or the sensor is not ready; the message says when to try again), `snapshotFailed`, `badSetting` (a skeleton setting that is not one of the allowed values). `mocapRefused` (already recording, or the Kinect is not ready), `noSuchTake`, `badName`, `badExport`, `exportFailed`.
 
 ### Browser to bridge
 
@@ -71,6 +73,11 @@ Status is sent "newest only": if a browser falls behind, an unsent older status 
 | `tilt` | `angle`: degrees, -27 to 27 (rounded, and clamped to that range) | Moves the tilt motor, unless it moved less than 1 second ago, has moved 15 times in the last 20 seconds, or is still moving. Refusals come back as a `tiltRefused` error. Requests are refused, never queued |
 | `live.settings` | `peopleHighlight`: true or false | Greys out everything except tracked people in the depth view and depth snapshots |
 | `skeleton.settings` | `mode`: `standing` or `seated`, and/or `smoothing`: `off`, `light` or `heavy`. Either may be left out | Changes skeleton tracking for everyone and sends a fresh `status`. Changing smoothing pauses tracking for under a second while the Kinect picks people up again |
+| `mocap.start` | none | Starts the 3-second countdown, then records every skeleton frame. Refused while already recording or when the Kinect is not ready. Starts even with nobody tracked, so there is time to step into view |
+| `mocap.stop` | none | Stops and saves the take, or cancels a countdown |
+| `mocap.rename` | `id`, `name` | Renames the take; the file is renamed to match (unsafe characters become dashes). Any BVH made under the old name is removed |
+| `mocap.delete` | `id` | Moves the take and its BVH to the Recycle Bin |
+| `export` | `kind`: `take`, `id`, `format`: `bvh` or `json` | Replies with a download link. BVH files are made on request and saved next to the take |
 | `snapshot` | none | Saves the newest colour and depth pictures as PNG files in `captures/snapshots`, named `snapshot-YYYYMMDD-HHMMSS-colour.png` and `-depth.png`. Replies with a `snapshot` message |
 
 The page sends `subscribe` on every connect, every tab switch, and every change of view on the Live tab.
@@ -128,3 +135,62 @@ The depth colours are defined twice and must match: `bridge/Streams/DepthColouri
 - `colour` and `depth` are the joint's pixel position in the 640x480 colour and depth pictures, from the SDK's coordinate mapper, which allows for the gap between the two cameras.
 - `state` is `tracked` (seen) or `inferred` (guessed, for example a hand hidden behind the body).
 - `floor` is the floor plane `[A, B, C, D]`, where `Ax + By + Cz + D = 0` in the same coordinates, or `null` if the Kinect cannot see the floor. `D` is roughly the Kinect's height above the floor in metres.
+
+## The mocap message
+
+```json
+{
+  "type": "mocap", "v": 1,
+  "state": "recording",
+  "countdown": 0,
+  "elapsed": 12.4,
+  "frames": 371,
+  "peopleNow": 1,
+  "takes": [
+    { "id": "take-20260927-102921", "name": "Take 2026-09-27 10:29:21", "created": "2026-09-27 10:29:21",
+      "duration": 45.168, "frames": 1355, "people": 1, "mode": "standing" }
+  ],
+  "event": { "kind": "saved", "id": "take-20260927-102921", "name": "Take 2026-09-27 10:29:21" }
+}
+```
+
+- `state` is `idle`, `countdown`, `recording` or `saving`. `countdown` is the seconds left (3, 2, 1). `elapsed` and `frames` count the take so far. `peopleNow` is how many people are tracked at this moment.
+- `takes` (newest first) is included on connect and whenever the list changes. `id` is the file name without `.json`.
+- `event` appears once when something happens: `saved` (`id`, `name`), `failed` (`message`: for example nobody was tracked, so nothing was saved), `renamed` (`oldId`, `id`, `name`), `deleted` (`id`).
+- Plain state updates are newest-only; messages carrying `takes` or an `event` always arrive.
+- Recording stops by itself after 10 minutes.
+
+## Take files
+
+Each take is `captures/mocap/<id>.json`, and the page loads it from `/captures/mocap/<id>.json` for playback.
+
+```json
+{
+  "format": "kinect-web-console-take", "version": 1,
+  "name": "Take 2026-09-27 10:29:21", "created": "2026-09-27 10:29:21",
+  "mode": "standing", "smoothing": "light",
+  "durationSeconds": 45.168, "frameCount": 1355, "people": 1,
+  "floor": [0.016, 0.996, 0.087, 0.743],
+  "frames": [
+    { "t": 33, "bodies": [
+      { "id": 5, "player": 1, "joints": {
+        "head": { "p": [0.08, 0.95, 2.56], "state": "tracked", "rot": [0.01, 0.02, 0.0, 0.9997] }
+      } } ] }
+  ]
+}
+```
+
+- Every skeleton frame is kept (not just the newest), with `t` in milliseconds from the start of recording. `bodies` is empty in frames where nobody was tracked.
+- Joints use the same names and coordinates as the `skeletons` message, rounded to a tenth of a millimetre.
+- `rot` is the SDK's hierarchical bone orientation for the bone ending at that joint, as a quaternion `[x, y, z, w]`: the bone's rotation relative to the bone it hangs from, with every bone pointing along its own +Y. For `hipCenter` it is the whole body's rotation relative to the Kinect. The mock sensor works these out from the joint positions the same way.
+
+## BVH files
+
+`captures/mocap/<id>.bvh`, made by `export` with `format: "bvh"`. For Blender: File, Import, Motion Capture (.bvh), default settings.
+
+- One person: the one tracked in the most frames. Standing takes only (seated takes have no hips or legs).
+- Units are metres, Y up, in the Kinect's axes; the person faces -Z, towards the Kinect.
+- The root `Hips` sits at the hip centre, with position and rotation channels. Every other joint is one Kinect bone, named for the body part (`LowerSpine`, `UpperSpine`, `Neck`, `CollarLeft`, `UpperArmLeft`, `ForearmLeft`, `HandLeft`, `PelvisLeft`, `ThighLeft`, `ShinLeft`, `FootLeft`, and the same on the right). Each starts where its parent bone ends, along the parent's +Y, so its rotation is exactly the SDK's hierarchical rotation.
+- Rotation channels are `Zrotation Xrotation Yrotation`. Bone lengths are each bone's middle length over the take.
+- Frames are evened out to exactly 30 a second; a joint missing from a frame keeps its last rotation.
+- The export rebuilds every joint from the BVH and reports the average distance from where the Kinect saw it (the `note` in the reply). About 3 cm is typical for a real take: the Kinect's own bone lengths wobble slightly from frame to frame, and the BVH uses fixed lengths.

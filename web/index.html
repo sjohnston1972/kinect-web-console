@@ -139,8 +139,36 @@
   </section>
 
   <section class="tab-panel" data-panel="mocap" hidden>
-    <div class="main-view placeholder"><p>Motion capture arrives in Phase 4.</p></div>
-    <aside class="control-panel"><h2>Motion capture</h2><p class="muted">Controls arrive in Phase 4.</p></aside>
+    <div class="main-view mocap-view">
+      <div class="cloud" id="mocap-3d"></div>
+      <div class="hud" id="mocap-hud" aria-live="assertive"></div>
+    </div>
+
+    <aside class="control-panel">
+      <h2>Record</h2>
+      <button id="mocap-record" class="button record" disabled>&#9679; Record</button>
+      <p class="muted small" id="mocap-state"></p>
+
+      <div id="player" hidden>
+        <h2>Playing</h2>
+        <p class="take-name" id="player-name"></p>
+        <div class="player-controls">
+          <button id="play-pause" class="button small">Pause</button>
+          <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Position in the take">
+        </div>
+        <p class="muted small" id="player-time">0:00 / 0:00</p>
+        <div class="button-row">
+          <button id="export-bvh" class="button small" title="Make a BVH file for Blender (File, Import, Motion Capture)">Export BVH</button>
+          <button id="export-json" class="button small" title="Download the take as recorded, every joint and frame">Download JSON</button>
+        </div>
+        <p class="muted small" id="export-note"></p>
+        <button id="back-live" class="button small">Back to live view</button>
+      </div>
+
+      <h2>Takes</h2>
+      <div class="take-list" id="take-list"></div>
+      <p class="muted small">Saved in captures\mocap. Deleted takes go to the Recycle Bin.</p>
+    </aside>
   </section>
 
   <section class="tab-panel" data-panel="scan" hidden>
@@ -210,6 +238,7 @@
 <script src="js/tilt.js"></script>
 <script src="js/live.js"></script>
 <script src="js/skeleton.js"></script>
+<script src="js/mocap.js"></script>
 <script>Tabs.start();</script>
 <script type="module" src="js/pointcloud.js"></script>
 <script type="module" src="js/skeleton3d.js"></script>

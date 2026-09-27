@@ -70,6 +70,7 @@ namespace KinectBridge.Sensor
                         Inferred = person.Player == 1 && j == Joints.HandLeft && Math.Sin(seconds * 4) > 0.6,
                     };
                 }
+                BoneMath.FillRotations(body);
                 data.Bodies.Add(body);
             }
             return data;

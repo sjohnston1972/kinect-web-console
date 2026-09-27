@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using KinectBridge.Mocap;
 using KinectBridge.Sensor;
 using KinectBridge.Skeleton;
 using KinectBridge.Streams;
@@ -14,7 +15,7 @@ namespace KinectBridge.Web
     static class Commands
     {
         public static void Register(MessageHub hub, ISensor sensor, TiltController tilt, StreamPump pump,
-            SkeletonSettings skeletonSettings, Action pushStatus)
+            SkeletonSettings skeletonSettings, Action pushStatus, Recorder recorder, TakeLibrary takes)
         {
             hub.On("sensor.reconnect", (client, msg) => sensor.Reconnect());
 
@@ -68,6 +69,67 @@ namespace KinectBridge.Web
                 pushStatus();
             });
 
+            hub.On("mocap.start", (client, msg) =>
+            {
+                var refusal = recorder.Start();
+                if (refusal != null) MessageHub.SendError(client, "mocapRefused", refusal);
+            });
+
+            hub.On("mocap.stop", (client, msg) => recorder.Stop());
+
+            hub.On("mocap.rename", (client, msg) =>
+            {
+                var id = msg.TryGetValue("id", out var i) ? i as string : null;
+                var name = msg.TryGetValue("name", out var n) ? n as string : null;
+                if (!takes.Exists(id)) { MessageHub.SendError(client, "noSuchTake", "That take no longer exists. The list has been refreshed."); recorder.Broadcast(null, includeTakes: true); return; }
+                try
+                {
+                    var info = takes.Rename(id, name);
+                    Log.Info($"Renamed take {id} to {info.Id}");
+                    recorder.Broadcast(new { kind = "renamed", oldId = id, id = info.Id, name = info.Name }, includeTakes: true);
+                }
+                catch (ArgumentException ex) { MessageHub.SendError(client, "badName", ex.Message); }
+            });
+
+            hub.On("mocap.delete", (client, msg) =>
+            {
+                var id = msg.TryGetValue("id", out var i) ? i as string : null;
+                if (!takes.Exists(id)) { MessageHub.SendError(client, "noSuchTake", "That take no longer exists. The list has been refreshed."); recorder.Broadcast(null, includeTakes: true); return; }
+                takes.Delete(id);
+                Log.Info($"Deleted take {id} (moved to the Recycle Bin)");
+                recorder.Broadcast(new { kind = "deleted", id }, includeTakes: true);
+            });
+
+            hub.On("export", (client, msg) =>
+            {
+                var kind = msg.TryGetValue("kind", out var k) ? k as string : null;
+                var id = msg.TryGetValue("id", out var i) ? i as string : null;
+                var format = msg.TryGetValue("format", out var f) ? f as string : null;
+                if (kind != "take") { MessageHub.SendError(client, "badExport", "Only motion capture takes can be exported so far."); return; }
+                if (!takes.Exists(id)) { MessageHub.SendError(client, "noSuchTake", "That take no longer exists."); return; }
+
+                if (format == "json")
+                {
+                    MessageHub.Send(client, new { type = "export", v = MessageHub.ProtocolVersion, kind, id, format, name = id + ".json", url = TakeUrl(id + ".json") });
+                    return;
+                }
+                if (format != "bvh") { MessageHub.SendError(client, "badExport", "Takes export as bvh or json."); return; }
+                try
+                {
+                    var result = BvhExporter.Export(takes.Load(id), takes.BvhPath(id));
+                    var note = $"{result.Frames} frames at 30 per second. Joints land on average {result.AverageErrorCm:0.0} cm from where the Kinect saw them."
+                        + (result.PeopleInTake > 1 ? $" The take has {result.PeopleInTake} people; the BVH holds the one tracked longest." : "");
+                    Log.Info($"Exported {id}.bvh: {note}");
+                    MessageHub.Send(client, new { type = "export", v = MessageHub.ProtocolVersion, kind, id, format, name = id + ".bvh", url = TakeUrl(id + ".bvh"), note });
+                }
+                catch (InvalidOperationException ex) { MessageHub.SendError(client, "exportFailed", ex.Message); }
+                catch (Exception ex)
+                {
+                    Log.Error($"BVH export of {id} failed: {ex.Message}");
+                    MessageHub.SendError(client, "exportFailed", "The BVH file could not be made. The bridge log has details.");
+                }
+            });
+
             hub.On("snapshot", (client, msg) =>
             {
                 try
@@ -91,6 +153,8 @@ namespace KinectBridge.Web
                 }
             });
         }
+
+        static string TakeUrl(string fileName) => "/captures/mocap/" + Uri.EscapeDataString(fileName);
 
         /// <summary>JSON numbers arrive as int or decimal depending on whether they have a fraction.</summary>
         static bool TryGetNumber(Dictionary<string, object> msg, string key, out double value)

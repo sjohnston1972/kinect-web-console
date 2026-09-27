@@ -25,6 +25,19 @@ namespace KinectBridge.Skeleton
             HipLeft = 12, KneeLeft = 13, AnkleLeft = 14, FootLeft = 15,
             HipRight = 16, KneeRight = 17, AnkleRight = 18, FootRight = 19;
 
+        /// <summary>
+        /// The joint each joint hangs from (the SDK's hierarchy), or -1 for the hip centre, which is the root.
+        /// The bone ending at a joint runs from its parent to it.
+        /// </summary>
+        public static readonly int[] Parent =
+        {
+            -1, HipCenter, Spine, ShoulderCenter,
+            ShoulderCenter, ShoulderLeft, ElbowLeft, WristLeft,
+            ShoulderCenter, ShoulderRight, ElbowRight, WristRight,
+            HipCenter, HipLeft, KneeLeft, AnkleLeft,
+            HipCenter, HipRight, KneeRight, AnkleRight,
+        };
+
         /// <summary>The 10 upper-body joints tracked in seated mode.</summary>
         public static readonly int[] Seated =
         {
@@ -42,8 +55,15 @@ namespace KinectBridge.Skeleton
         /// <summary>Pixel position in the 640x480 colour picture and in the 640x480 depth picture.</summary>
         public float ColourX, ColourY, DepthX, DepthY;
 
-        /// <summary>True if the Kinect sees the joint; false if it is guessing (for example, a hand hidden behind the body).</summary>
+        /// <summary>True if the Kinect is guessing this joint (for example, a hand hidden behind the body).</summary>
         public bool Inferred;
+
+        /// <summary>
+        /// Rotation of the bone ending at this joint, relative to the bone it hangs from, as a quaternion (x, y, z, w).
+        /// Each bone points along its own +Y. For the hip centre it is the whole body's rotation relative to the Kinect.
+        /// From the SDK's hierarchical bone orientations; worked out from positions for the mock sensor.
+        /// </summary>
+        public Quat Rotation = Quat.Identity;
     }
 
     /// <summary>One tracked person.</summary>

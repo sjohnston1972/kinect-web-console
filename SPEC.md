@@ -40,7 +40,8 @@ The Kinect needs a power adapter, Microsoft's Kinect for Windows SDK v1.8, and a
 | .NET Framework 4.8.1 | The runtime the app targets. Built into Windows 11 | Already present |
 | .NET Framework 4.8.1 Developer Pack | The files needed to build for .NET Framework 4.8.1 | Claude Code installs with winget |
 | .NET SDK 8 or later | Builds the project from the command line | Claude Code installs with winget |
-| Git | Version control for the project | Claude Code installs with winget |
+| Git | Version control for the project | Already installed (2.51) |
+| Blender 4.5 LTS | Opens BVH, OBJ and PLY exports; used to test them | Claude Code installs with winget |
 
 **Rule: Claude Code runs natively on Windows (PowerShell or Git Bash), never inside WSL.** WSL is a Linux virtual machine that cannot see the Kinect, and SDK 1.8 is Windows only.
 
@@ -134,7 +135,7 @@ Five features, each a tab in the web page, all fed by the same sensor connection
 
 ### Motion capture
 
-- Record button with a 3-second countdown, so Steven can step into position.
+- Record button with a 3-second countdown, so Steven can step into position. It works even when nobody is tracked yet, because stepping into view during the countdown is the point; the page says when nobody is tracked, and a take in which nobody was ever tracked is not saved.
 - Records every skeleton frame with a timestamp: joint positions, tracking state, and bone rotations.
 - Saves each take to captures/mocap as JSON, named by date and time.
 - Take list with play, pause, a scrub bar, rename and delete.
@@ -177,6 +178,7 @@ One WebSocket at ws://localhost:8766/ws carries everything live: images as binar
 | status | Sensor state, real or mock mode, tilt angle, accelerometer, fps per stream |
 | skeletons | Up to 2 tracked bodies: id, and per joint the position in metres, image position, and tracking state |
 | mocap | Recording state, countdown, take list changes |
+| export | Reply to an export request: the file name and its download link |
 | fusion | Scan state, tracking OK or lost, current preset |
 | log | A new log line |
 | error | An error code and a plain-English message |
@@ -193,6 +195,7 @@ One WebSocket at ws://localhost:8766/ws carries everything live: images as binar
 | snapshot | Save the current colour and depth pictures |
 | skeleton.settings | Standing or seated, smoothing preset |
 | mocap.start, mocap.stop | Start or stop a take |
+| mocap.rename, mocap.delete | Rename a take, or move it to the Recycle Bin |
 | fusion.start, fusion.pause, fusion.reset, fusion.preset | Scan controls |
 | export | Scan or take id and format. The reply holds a download link |
 
@@ -216,7 +219,7 @@ The header holds the app name, the status light, the tilt slider, and a "Mock mo
 | 3D scan | Live shaded model, then the finished mesh in 3D | Preset, start, pause, reset, export STL, OBJ or PLY |
 | Status | Sensor details, accelerometer, stream rates | Log viewer, reconnect button |
 
-Switching tabs sends a new subscribe message, so only the current tab's streams flow. Buttons that cannot work right now (for example, Record with no person tracked) are greyed out with a tooltip saying why.
+Switching tabs sends a new subscribe message, so only the current tab's streams flow. Buttons that cannot work right now (for example, Snapshot or Record while the Kinect is not ready) are greyed out with a tooltip saying why.
 
 ## Build phases
 
@@ -256,9 +259,9 @@ The bridge starts, serves the page, opens the WebSocket, and reports status. Moc
 
 ### Phase 4: Motion capture
 
-- [ ] A 30-second take records, saves as JSON, and plays back with the scrub bar
-- [ ] The BVH export imports into Blender and the armature moves like Steven did
-- [ ] Takes can be renamed and deleted from the page
+- [x] A 30-second take records, saves as JSON, and plays back with the scrub bar
+- [x] The BVH export imports into Blender and the armature moves like Steven did
+- [x] Takes can be renamed and deleted from the page
 
 ### Phase 5: 3D scanning
 

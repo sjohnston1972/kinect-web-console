@@ -17,7 +17,7 @@ namespace KinectBridge
         /// <summary>Parses a JSON object. Throws if the text is not a JSON object.</summary>
         public static Dictionary<string, object> Parse(string text)
         {
-            var result = new JavaScriptSerializer().DeserializeObject(text) as Dictionary<string, object>;
+            var result = new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.DeserializeObject(text) as Dictionary<string, object>;
             if (result == null) throw new System.FormatException("Expected a JSON object");
             return result;
         }

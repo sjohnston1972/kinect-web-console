@@ -314,3 +314,40 @@ dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .people { display: flex; flex-direction: column; gap: 6px; }
 .person { display: flex; align-items: center; gap: 8px; }
 .swatch { width: 14px; height: 14px; border-radius: 50%; flex: none; border: 1px solid rgba(0, 0, 0, .3); }
+
+/* Motion capture tab: the 3D view with a heads-up display on top */
+.mocap-view { position: relative; display: flex; padding: 12px; }
+.mocap-view .cloud { display: block; flex: 1; }
+.hud {
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, .8);
+}
+.hud:empty { display: none; }
+.hud.countdown { top: 35%; font-size: 120px; line-height: 1; }
+.hud.recording { font-size: 22px; color: #ff6b5e; background: rgba(0, 0, 0, .55); padding: 4px 14px; border-radius: 6px; }
+.hud.playing { font-size: 16px; background: rgba(0, 0, 0, .55); padding: 4px 14px; border-radius: 6px; }
+
+.button.record { font-size: 16px; padding: 10px 14px; color: #fff; background: var(--red); border-color: var(--red); }
+.button.record.stop { background: var(--surface-2); color: var(--text); border-color: var(--border); }
+.button.small { padding: 5px 10px; font-size: 13px; }
+.button-row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+#player { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
+#player[hidden] { display: none; }
+.player-controls { display: flex; gap: 8px; align-items: center; }
+.player-controls input { flex: 1; }
+
+.take-list { display: flex; flex-direction: column; gap: 6px; }
+.take { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px 4px 4px; }
+.take.selected { border-color: var(--accent); }
+.take-open { flex: 1; min-width: 0; text-align: left; background: none; border: 0; color: var(--text); font: inherit; cursor: pointer; padding: 4px; display: flex; flex-direction: column; }
+.take-open:hover .take-name { color: var(--accent); }
+.take-name { font-weight: 600; overflow-wrap: anywhere; margin: 0; }
+.take-meta { font-size: 12px; color: var(--muted); }
+.take-actions { display: flex; gap: 4px; flex: none; }

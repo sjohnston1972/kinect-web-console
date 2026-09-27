@@ -28,6 +28,8 @@
     <Reference Include="System.Web.Extensions" />
     <!-- JPEG and PNG encoding, and drawing the mock sensor's test pictures -->
     <Reference Include="System.Drawing" />
+    <!-- Sends deleted takes and scans to the Recycle Bin rather than deleting them outright -->
+    <Reference Include="Microsoft.VisualBasic" />
   </ItemGroup>
 
   <Target Name="CheckKinectSdk" BeforeTargets="ResolveAssemblyReferences"

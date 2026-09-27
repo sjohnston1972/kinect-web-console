@@ -262,6 +262,8 @@ namespace KinectBridge.Sensor
             }
         }
 
+        static Quat ToQuat(Vector4 q) => new Quat(q.X, q.Y, q.Z, q.W);
+
         void OnSkeletonFrame(object sender, SkeletonFrameReadyEventArgs e)
         {
             var sensor = (KinectSensor)sender;
@@ -297,6 +299,7 @@ namespace KinectBridge.Sensor
                             ColourX = colour.X, ColourY = colour.Y,
                             DepthX = depth.X, DepthY = depth.Y,
                             Inferred = joint.TrackingState == JointTrackingState.Inferred,
+                            Rotation = ToQuat(skeleton.BoneOrientations[joint.JointType].HierarchicalRotation.Quaternion),
                         };
                     }
                     data.Bodies.Add(body);

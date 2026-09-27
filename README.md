@@ -1,6 +1,6 @@
 # Kinect Web Console
 
-Use an Xbox 360 Kinect from a web page on this PC. The page shows live colour and depth pictures, a 3D point cloud, and the Kinect's status, and lets you tilt the Kinect and save snapshots. It also tracks skeletons. Motion capture and 3D scanning follow in later phases.
+Use an Xbox 360 Kinect from a web page on this PC. The page shows live colour and depth pictures, a 3D point cloud, and the Kinect's status, and lets you tilt the Kinect and save snapshots. It also tracks skeletons and records motion capture, which exports to Blender. 3D scanning follows in a later phase.
 
 ## Start it
 
@@ -31,6 +31,17 @@ Close the black window, or click in it and press Ctrl+C.
 - **Smoothing** steadies jittery joints: Off is quickest but shaky, Heavy is very steady but trails fast movement. Changing it pauses tracking for under a second.
 - Faded, dashed joints are ones the Kinect is guessing, such as a hand hidden behind your body.
 - Too close (under about 1.2 m), or the Kinect looking up at you steeply, and it will not track you. Tilt it level and step back.
+
+## The Motion capture tab
+
+1. Click **Record**. You get a 3-second countdown to step into position (2 to 3 m away, whole body in view).
+2. Move. The view shows your skeleton and a red REC timer.
+3. Click **Stop**. The take is saved in `capturesmocap` and appears in the list, named by date and time.
+
+- Click a take to **play** it. Use the slider to scrub, **Pause** to hold a pose, and **Back to live view** to return.
+- **Rename** and **Delete** are next to each take. Deleted takes go to the Recycle Bin.
+- **Export BVH** makes a file for Blender: File, Import, Motion Capture (.bvh), default settings. It holds one person and needs a take recorded in Standing mode. Starting a take with a T-pose (arms straight out) makes it easy to line up in Blender.
+- **Download JSON** gives the take exactly as recorded, every joint of every frame.
 
 ## The status light
 

@@ -1,5 +1,6 @@
 // The 3D skeleton: each tracked person as coloured joints and bones in their real position, in metres,
 // standing on a grid laid along the floor the Kinect detects. Drag to orbit, as with the point cloud.
+// createSkeletonScene makes one such view; the Skeleton tab and the Motion capture tab each have their own.
 
 import { createView, THREE } from './scene3d.js';
 
@@ -8,11 +9,6 @@ const HEAD_RADIUS = 0.08;
 const BONE_RADIUS = 0.018;
 const GUESSED_OPACITY = 0.3;
 const MAX_PLAYERS = 6;
-
-let view = null;
-let waiting = null;
-let floorGrid = null;
-const figures = [];   // one reusable set of meshes per player number
 
 const up = new THREE.Vector3(0, 1, 0);
 const a = new THREE.Vector3();
@@ -80,7 +76,7 @@ function makeFigure(player) {
 // (in the 3D view, with Z flipped, that becomes Ax + By - Cz + D = 0)
 const ROOM_CENTRE = new THREE.Vector3(0, 0, -2.5);   // centre the grid out in the room, not under the Kinect
 
-function placeFloor(floor) {
+function placeFloor(floorGrid, floor) {
   if (!floor || floor[1] === 0) { floorGrid.visible = false; return; }
   const length = Math.hypot(floor[0], floor[1], floor[2]);
   const normal = new THREE.Vector3(floor[0], floor[1], -floor[2]).divideScalar(length);
@@ -92,45 +88,57 @@ function placeFloor(floor) {
   floorGrid.visible = true;
 }
 
-function build() {
-  view = createView({ view: { position: [1.8, 1.2, 0.2], target: [0, -0.2, -2.3] } });
-  floorGrid = new THREE.GridHelper(6, 12, 0x3a4250, 0x262c35);
-  floorGrid.visible = false;
-  view.scene.add(floorGrid);
+export function createSkeletonScene() {
+  let view = null;
+  let waiting = null;   // newest message not yet drawn
+  let floorGrid = null;
+  const figures = [];   // one reusable set of meshes per player number
 
-  for (let player = 1; player <= MAX_PLAYERS; player++) {
-    const figure = makeFigure(player);
-    figure.group.visible = false;
-    view.scene.add(figure.group);
-    figures[player] = figure;
+  function build() {
+    view = createView({ view: { position: [1.8, 1.2, 0.2], target: [0, -0.2, -2.3] } });
+    floorGrid = new THREE.GridHelper(6, 12, 0x3a4250, 0x262c35);
+    floorGrid.visible = false;
+    view.scene.add(floorGrid);
+
+    for (let player = 1; player <= MAX_PLAYERS; player++) {
+      const figure = makeFigure(player);
+      figure.group.visible = false;
+      view.scene.add(figure.group);
+      figures[player] = figure;
+    }
+
+    view.beforeRender = () => {
+      if (!waiting) return;
+      const msg = waiting;
+      waiting = null;
+      placeFloor(floorGrid, msg.floor);
+      const seen = new Set(msg.bodies.map((body) => body.player));
+      for (let player = 1; player <= MAX_PLAYERS; player++) {
+        if (!seen.has(player)) figures[player].group.visible = false;
+      }
+      for (const body of msg.bodies) figures[body.player]?.update(body);
+    };
   }
 
-  view.beforeRender = () => {
-    if (!waiting) return;
-    const msg = waiting;
+  function show(element) {
+    if (!view) build();
+    view.show(element);
+  }
+
+  function hide() {
     waiting = null;
-    placeFloor(msg.floor);
-    const seen = new Set(msg.bodies.map((body) => body.player));
-    for (let player = 1; player <= MAX_PLAYERS; player++) {
-      if (!seen.has(player)) figures[player].group.visible = false;
-    }
-    for (const body of msg.bodies) figures[body.player]?.update(body);
-  };
+    if (view) view.hide();
+  }
+
+  // Takes a skeletons message (or anything shaped like one: { bodies, floor })
+  function update(msg) {
+    if (view && view.running) waiting = msg;
+  }
+
+  return { show, hide, update };
 }
 
-function show(element) {
-  if (!view) build();
-  view.show(element);
-}
-
-function hide() {
-  waiting = null;
-  if (view) view.hide();
-}
-
-function update(msg) {
-  if (view && view.running) waiting = msg;
-}
-
-window.Skeleton3D = { show, hide, update };
+window.createSkeletonScene = createSkeletonScene;
+window.Skeleton3D = createSkeletonScene();
+if (window.onMocapViewReady) window.onMocapViewReady();
 if (window.onSkeleton3DReady) window.onSkeleton3DReady();
