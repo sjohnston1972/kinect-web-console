@@ -57,6 +57,14 @@ namespace KinectBridge.Mocap
                 throw new InvalidOperationException("BVH needs a take recorded in Standing mode. Seated mode has no hips or legs to build the skeleton from.");
 
             var poses = ReadPoses(take, out var personId, out var people);
+
+            // Only the trimmed part of the take, if it has been trimmed
+            if (take.TryGetValue("trim", out var t) && t is Dictionary<string, object> trim)
+            {
+                var start = Convert.ToDouble(trim["start"]);
+                var end = Convert.ToDouble(trim["end"]);
+                poses = poses.Where(p => p.T >= start && p.T <= end).ToList();
+            }
             if (poses.Count(p => p.Position[Joints.HipCenter] != null) < 2)
                 throw new InvalidOperationException("The take has too little full-body tracking to export. Record again standing with your whole body in view.");
 

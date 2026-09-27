@@ -220,7 +220,7 @@ namespace KinectBridge.Mocap
                     ["peopleNow"] = peopleNow,
                 };
                 if (includeTakes)
-                    message["takes"] = library.List().Select(t => new { id = t.Id, name = t.Name, created = t.Created, duration = t.Duration, frames = t.Frames, people = t.People, mode = t.Mode }).ToList();
+                    message["takes"] = library.List().Select(t => new { id = t.Id, name = t.Name, created = t.Created, duration = t.Duration, trimStart = t.TrimStart, trimEnd = t.TrimEnd, frames = t.Frames, people = t.People, mode = t.Mode }).ToList();
                 if (outcome != null) message["event"] = outcome;
                 return Json.Serialize(message);
             }

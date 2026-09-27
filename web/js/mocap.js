@@ -94,7 +94,8 @@
       name.textContent = t.name;
       const meta = document.createElement('span');
       meta.className = 'take-meta';
-      meta.textContent = `${clock(t.duration)} · ${t.people} ${t.people === 1 ? 'person' : 'people'} · ${t.mode} · ${t.created.slice(5, 16)}`;
+      const kept = t.trimEnd > 0 ? t.trimEnd - t.trimStart : t.duration;
+      meta.textContent = `${clock(kept)}${t.trimEnd > 0 ? ' (trimmed)' : ''} · ${t.people} ${t.people === 1 ? 'person' : 'people'} · ${t.mode} · ${t.created.slice(5, 16)}`;
       open.append(name, meta);
       open.addEventListener('click', () => loadTake(t.id));
 
@@ -133,13 +134,14 @@
       if (!response.ok) throw new Error(`the bridge answered ${response.status}`);
       take = await response.json();
       takeId = id;
-      playTime = 0;
+      playTime = kept()[0];
       playing = true;
       lastTick = performance.now();
       $('player').hidden = false;
       $('player-name').textContent = take.name;
       $('export-note').textContent = '';
       $('scrub').max = Math.max(1, Math.round(take.durationSeconds * 1000));
+      showTrim();
       renderTakes();
       updateHud(null);
       requestAnimationFrame(playbackLoop);
@@ -148,6 +150,38 @@
     } finally {
       loading = false;
     }
+  }
+
+  // The part of the take kept by its trim, as [start, end] in seconds (the whole take if not trimmed)
+  function kept() {
+    return take && take.trim ? [take.trim.start, take.trim.end] : [0, take ? take.durationSeconds : 0];
+  }
+
+  // Shades the scrub bar outside the kept part, and describes the trim
+  function showTrim() {
+    if (!take) return;
+    const [start, end] = kept();
+    const a = (start / take.durationSeconds) * 100;
+    const b = (end / take.durationSeconds) * 100;
+    $('scrub').style.setProperty('--kept-from', `${a}%`);
+    $('scrub').style.setProperty('--kept-to', `${b}%`);
+    $('scrub').classList.toggle('trimmed', !!take.trim);
+    $('trim-text').textContent = take.trim
+      ? `Keeps ${clock(start)} to ${clock(end)} (${clock(end - start)}). Playback and BVH export use only this part; the recording itself is kept whole.`
+      : 'Not trimmed. Set a start and end to cut off walking in and out.';
+    $('trim-clear').disabled = !take.trim;
+  }
+
+  function sendTrim(start, end) {
+    if (end - start < 0.5) { Notice.show('The kept part must be at least half a second, with the start before the end.', 'error'); return; }
+    Connection.send({ type: 'mocap.trim', id: takeId, start: Math.round(start * 1000) / 1000, end: Math.round(end * 1000) / 1000 });
+  }
+
+  // The first and last moments anyone is tracked, with a fifth of a second either side
+  function trackedRange() {
+    const withPeople = take.frames.filter((f) => f.bodies.length > 0);
+    if (withPeople.length === 0) return null;
+    return [Math.max(0, withPeople[0].t / 1000 - 0.2), Math.min(take.durationSeconds, withPeople[withPeople.length - 1].t / 1000 + 0.2)];
   }
 
   // The frame at a moment in the take: the last one at or before it (frames are in time order)
@@ -168,15 +202,15 @@
     if (scene) scene.update({ bodies: frame.bodies, floor: take.floor });
     $('scrub').value = Math.round(playTime * 1000);
     $('player-time').textContent = `${clock(playTime)} / ${clock(take.durationSeconds)}`;
-    $('play-pause').textContent = playing ? 'Pause' : playTime >= take.durationSeconds ? 'Play again' : 'Play';
+    $('play-pause').textContent = playing ? 'Pause' : playTime >= kept()[1] ? 'Play again' : 'Play';
   }
 
   function playbackLoop(now) {
     if (!take) return;
     if (playing) {
       playTime += (now - lastTick) / 1000;
-      if (playTime >= take.durationSeconds) {
-        playTime = take.durationSeconds;
+      if (playTime >= kept()[1]) {
+        playTime = kept()[1];
         playing = false;
       }
     }
@@ -187,7 +221,7 @@
 
   function setPlaying(on) {
     if (!take) return;
-    if (on && playTime >= take.durationSeconds) playTime = 0;
+    if (on && (playTime >= kept()[1] || playTime < kept()[0])) playTime = kept()[0];
     playing = on;
     lastTick = performance.now();
     showFrame();
@@ -210,6 +244,13 @@
     showFrame();
   });
   $('back-live').addEventListener('click', stopPlayback);
+  $('trim-start').addEventListener('click', () => sendTrim(playTime, kept()[1]));
+  $('trim-end').addEventListener('click', () => sendTrim(kept()[0], playTime));
+  $('trim-tracked').addEventListener('click', () => {
+    const range = trackedRange();
+    if (range) sendTrim(range[0], range[1]); else Notice.show('Nobody is tracked anywhere in this take.', 'error');
+  });
+  $('trim-clear').addEventListener('click', () => Connection.send({ type: 'mocap.trim', id: takeId }));
   $('export-bvh').addEventListener('click', () => {
     $('export-note').textContent = 'Making the BVH file…';
     Connection.send({ type: 'export', kind: 'take', id: takeId, format: 'bvh' });
@@ -253,6 +294,12 @@
         renderTakes();
       }
       if (e.kind === 'deleted' && takeId === e.id) stopPlayback();
+      if (e.kind === 'trimmed' && takeId === e.id && take) {
+        take.trim = e.trimEnd > 0 ? { start: e.trimStart, end: e.trimEnd } : undefined;
+        if (playTime < kept()[0] || playTime > kept()[1]) playTime = kept()[0];
+        showTrim();
+        showFrame();
+      }
     }
     updateRecordButton();
     if (!take || msg.state === 'countdown' || msg.state === 'recording') updateHud(msg);

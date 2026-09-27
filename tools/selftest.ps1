@@ -235,6 +235,15 @@ try {
             $head = [Text.Encoding]::ASCII.GetString((DownloadBytes ("$origin" + $bvh.url)), 0, 9)
             @(($cm -lt 2 -and $head -eq 'HIERARCHY'), "$cm cm")
         }
+        # Issue #8: trimming keeps only part of the take for playback and export
+        Send $c ('{"type":"mocap.trim","v":1,"id":"' + $id + '","start":0.5,"end":1.5}')
+        $trimmed = WaitFor $c '"kind":"trimmed"' 5
+        Send $c ('{"type":"export","v":1,"kind":"take","format":"bvh","id":"' + $id + '"}')
+        $trimBvh = WaitFor $c '"type":"(export|error)"' 20
+        $trimFrames = [int]([regex]::Match("$($trimBvh.note)", '^(\d+) frames').Groups[1].Value)
+        Check "Trimming a take to 1 second makes a 1-second BVH (issue #8)" { @(($trimmed -and $trimFrames -ge 28 -and $trimFrames -le 32), "trim $($trimmed.event.trimStart) to $($trimmed.event.trimEnd) s, $trimFrames BVH frames") }
+        Send $c ('{"type":"mocap.trim","v":1,"id":"' + $id + '","start":1.5,"end":0.5}')
+        Check "A backwards trim is refused (issue #8)" { [bool](WaitFor $c '"code":"badTrim"' 5) }
         Send $c ('{"type":"mocap.rename","v":1,"id":"' + $id + '","name":"Self-test take"}')
         $renamed = WaitFor $c '"kind":"renamed"' 5
         Check "Rename works" { $renamed -and $renamed.event.id -eq 'Self-test take' }
@@ -346,7 +355,11 @@ try {
         }
         Check "Hands-free: a raised hand shows progress, then starts recording (issue #7)" { @(($seenProgress -and $started), "progress shown: $seenProgress, recording started: $started") }
         $null = Js "document.getElementById('mocap-record').click(); document.querySelector('.handsfree-switch').click(); 'off'"
-        Start-Sleep -Seconds 1
+        Start-Sleep -Seconds 3   # the hands-free take saves
+        $null = Js "[...document.querySelectorAll('.take-open')].find(b => b.textContent.includes('Self-test take')).click(); 'open'"
+        Start-Sleep -Seconds 2
+        Check "Opening a trimmed take shows the kept part (issue #8)" { $text = Js "document.getElementById('trim-text').textContent"; @(($text -match '^Keeps 0:00 to 0:01'), $text) }
+        $null = Js "document.getElementById('back-live').click()"
         $null = Js "1"   # collect any last errors
         Check "No script errors on any tab" { if ($problems.Count) { "$($problems.Count): " + ($problems | Select-Object -First 2) -join ' | ' } else { $true } }
         Close $cdp

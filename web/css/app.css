@@ -401,3 +401,14 @@ dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .handsfree-indicator[hidden] { display: none; }
 .handsfree-indicator .bar { margin-top: 8px; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, .2); overflow: hidden; }
 .handsfree-indicator .fill { height: 100%; width: 0; background: var(--green); }
+
+/* Trimmed takes: the scrub bar is shaded outside the kept part */
+#scrub.trimmed {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, var(--surface-2) var(--kept-from), var(--accent) var(--kept-from), var(--accent) var(--kept-to), var(--surface-2) var(--kept-to));
+}
+#scrub.trimmed::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--text); cursor: pointer; }
+.trim { display: flex; flex-direction: column; gap: 6px; }

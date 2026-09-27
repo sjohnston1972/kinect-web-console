@@ -13,7 +13,9 @@ namespace KinectBridge.Mocap
         public string Id;          // the file name without .json; also how the page refers to the take
         public string Name;        // the name shown on the page
         public string Created;     // local date and time, "yyyy-MM-dd HH:mm:ss"
-        public double Duration;    // seconds
+        public double Duration;    // seconds, the whole recording
+        public double TrimStart;   // seconds: the part kept for playback and export (TrimEnd 0 = to the end)
+        public double TrimEnd;
         public int Frames;
         public int People;
         public string Mode;        // standing or seated
@@ -88,6 +90,8 @@ namespace KinectBridge.Mocap
                         Duration = Convert.ToDouble(t["duration"]), Frames = Convert.ToInt32(t["frames"]),
                         People = Convert.ToInt32(t["people"]), Mode = (string)t["mode"],
                         Bytes = Convert.ToInt64(t["bytes"]), Modified = Convert.ToInt64(t["modified"]),
+                        TrimStart = t.ContainsKey("trimStart") ? Convert.ToDouble(t["trimStart"]) : 0,
+                        TrimEnd = t.ContainsKey("trimEnd") ? Convert.ToDouble(t["trimEnd"]) : 0,
                     };
                     result[info.Id] = info;
                 }
@@ -112,6 +116,7 @@ namespace KinectBridge.Mocap
                     {
                         ["id"] = t.Id, ["name"] = t.Name, ["created"] = t.Created, ["duration"] = t.Duration, ["frames"] = t.Frames,
                         ["people"] = t.People, ["mode"] = t.Mode, ["bytes"] = t.Bytes, ["modified"] = t.Modified,
+                        ["trimStart"] = t.TrimStart, ["trimEnd"] = t.TrimEnd,
                     }).ToList(),
                 };
                 WriteAtomically(Path.Combine(folder, IndexName), Json.Serialize(data));
@@ -157,6 +162,36 @@ namespace KinectBridge.Mocap
         }
 
         /// <summary>Gives a take a new name. The file is renamed to match, so it is easy to find in File Explorer.</summary>
+        /// <summary>
+        /// Keeps only part of a take for playback and export, from start to end in seconds. The recording itself is
+        /// never cut, so a trim can be changed or cleared later. Passing null for both clears it.
+        /// </summary>
+        public TakeInfo SetTrim(string id, double? start, double? end)
+        {
+            lock (gate)
+            {
+                if (!takes.ContainsKey(id)) throw new FileNotFoundException("That take no longer exists.");
+                var take = Json.Parse(File.ReadAllText(JsonPath(id)));
+                var duration = Convert.ToDouble(take["durationSeconds"]);
+                if (start == null && end == null) take.Remove("trim");
+                else
+                {
+                    var s = Math.Max(0, start ?? 0);
+                    var e = Math.Min(duration, end ?? duration);
+                    if (e - s < 0.5) throw new ArgumentException("The kept part must be at least half a second long, with the start before the end.");
+                    take["trim"] = new Dictionary<string, object> { ["start"] = Math.Round(s, 3), ["end"] = Math.Round(e, 3) };
+                }
+                WriteAtomically(JsonPath(id), Json.Serialize(take));
+                var info = ReadInfo(id, take);
+                takes[id] = info;
+                WriteIndex();
+                return info;
+            }
+        }
+
+        static double TrimValue(Dictionary<string, object> take, string which) =>
+            take.TryGetValue("trim", out var t) && t is Dictionary<string, object> trim && trim.TryGetValue(which, out var v) ? Convert.ToDouble(v) : 0;
+
         public TakeInfo Rename(string id, string newName)
         {
             newName = (newName ?? "").Trim();
@@ -213,6 +248,8 @@ namespace KinectBridge.Mocap
                 Name = take["name"] as string ?? id,
                 Created = take["created"] as string ?? "",
                 Duration = Convert.ToDouble(take["durationSeconds"]),
+                TrimStart = TrimValue(take, "start"),
+                TrimEnd = TrimValue(take, "end"),
                 Frames = Convert.ToInt32(take["frameCount"]),
                 People = Convert.ToInt32(take["people"]),
                 Mode = take["mode"] as string ?? "standing",

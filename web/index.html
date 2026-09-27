@@ -160,6 +160,17 @@
           <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Position in the take">
         </div>
         <p class="muted small" id="player-time">0:00 / 0:00</p>
+        <div class="trim">
+          <div class="button-row">
+            <button id="trim-start" class="button small" title="Keep from the slider's position">Set start here</button>
+            <button id="trim-end" class="button small" title="Keep up to the slider's position">Set end here</button>
+          </div>
+          <div class="button-row">
+            <button id="trim-tracked" class="button small" title="Cut off the parts where nobody is tracked, such as walking in and out">Trim to when someone is tracked</button>
+            <button id="trim-clear" class="button small">Clear trim</button>
+          </div>
+          <p class="muted small" id="trim-text"></p>
+        </div>
         <div class="button-row">
           <button id="export-bvh" class="button small" title="Make a BVH file for Blender (File, Import, Motion Capture)">Export BVH</button>
           <button id="export-json" class="button small" title="Download the take as recorded, every joint and frame">Download JSON</button>

@@ -98,6 +98,21 @@ namespace KinectBridge.Web
                 catch (ArgumentException ex) { MessageHub.SendError(client, "badName", ex.Message); }
             });
 
+            hub.On("mocap.trim", (client, msg) =>
+            {
+                var id = msg.TryGetValue("id", out var i) ? i as string : null;
+                if (!takes.Exists(id)) { MessageHub.SendError(client, "noSuchTake", "That take no longer exists. The list has been refreshed."); recorder.Broadcast(null, includeTakes: true); return; }
+                double? start = TryGetNumber(msg, "start", out var s) ? s : (double?)null;
+                double? end = TryGetNumber(msg, "end", out var e) ? e : (double?)null;
+                try
+                {
+                    var info = takes.SetTrim(id, start, end);
+                    Log.Info(start == null && end == null ? $"Cleared the trim on take {id}" : $"Trimmed take {id} to {info.TrimStart:0.0} to {info.TrimEnd:0.0} s");
+                    recorder.Broadcast(new { kind = "trimmed", id, trimStart = info.TrimStart, trimEnd = info.TrimEnd }, includeTakes: true);
+                }
+                catch (ArgumentException ex) { MessageHub.SendError(client, "badTrim", ex.Message); }
+            });
+
             hub.On("mocap.delete", (client, msg) =>
             {
                 var id = msg.TryGetValue("id", out var i) ? i as string : null;

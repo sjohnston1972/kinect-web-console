@@ -78,6 +78,7 @@ Status is sent "newest only": if a browser falls behind, an unsent older status 
 | `mocap.stop` | none | Stops and saves the take, or cancels a countdown |
 | `mocap.rename` | `id`, `name` | Renames the take; the file is renamed to match (unsafe characters become dashes). Any BVH made under the old name is removed |
 | `mocap.delete` | `id` | Moves the take and its BVH to the Recycle Bin |
+| `mocap.trim` | `id`, `start`, `end` (seconds); both left out to clear | Keeps only that part of the take for playback and BVH export. The recording itself is never cut. The kept part must be at least half a second (otherwise `badTrim`). Replies with a `trimmed` event |
 | `export` | `kind`: `take`, `id`, `format`: `bvh` or `json`; or `kind`: `scan`, `format`: `stl`, `obj`, `ply` or `preview` | Replies with a download link. Exports run in the background, so the page's other messages carry on meanwhile, and only one runs at a time (a second gets `exportFailed`). BVH files are made on request and saved next to the take. Scan files are made from the model as it is now (scanning pauses only while the mesh is read out); `preview` makes a lighter PLY in `captures/scans/preview` for the page's 3D view |
 | `fusion.start` | none | Starts scanning, or carries on after a pause. Builds the Fusion volume for the current preset on first use |
 | `fusion.pause` | none | Stops merging frames; the model is kept |
@@ -155,7 +156,7 @@ The depth colours are defined twice and must match: `bridge/Streams/DepthColouri
   "peopleNow": 1,
   "takes": [
     { "id": "take-20260927-102921", "name": "Take 2026-09-27 10:29:21", "created": "2026-09-27 10:29:21",
-      "duration": 45.168, "frames": 1355, "people": 1, "mode": "standing" }
+      "duration": 45.168, "trimStart": 0, "trimEnd": 0, "frames": 1355, "people": 1, "mode": "standing" }
   ],
   "event": { "kind": "saved", "id": "take-20260927-102921", "name": "Take 2026-09-27 10:29:21" }
 }
@@ -163,7 +164,7 @@ The depth colours are defined twice and must match: `bridge/Streams/DepthColouri
 
 - `state` is `idle`, `countdown`, `recording` or `saving`. `countdown` is the seconds left (3, 2, 1). `elapsed` and `frames` count the take so far. `peopleNow` is how many people are tracked at this moment.
 - `takes` (newest first) is included on connect and whenever the list changes. `id` is the file name without `.json`.
-- `event` appears once when something happens: `saved` (`id`, `name`), `failed` (`message`: for example nobody was tracked, so nothing was saved), `renamed` (`oldId`, `id`, `name`), `deleted` (`id`).
+- `event` appears once when something happens: `saved` (`id`, `name`), `failed` (`message`: for example nobody was tracked, so nothing was saved), `renamed` (`oldId`, `id`, `name`), `deleted` (`id`), `trimmed` (`id`, `trimStart`, `trimEnd`; both 0 when the trim was cleared). In `takes`, `trimEnd` 0 means not trimmed.
 - Plain state updates are newest-only; messages carrying `takes` or an `event` always arrive.
 - Recording stops by itself after 10 minutes.
 
@@ -187,6 +188,7 @@ Each take is `captures/mocap/<id>.json`, and the page loads it from `/captures/m
 }
 ```
 
+- `trim` (optional) is `{ "start": 5.2, "end": 40.1 }` in seconds: the part used for playback and BVH export.
 - Every skeleton frame is kept (not just the newest), with `t` in milliseconds from the start of recording. `bodies` is empty in frames where nobody was tracked.
 - Joints use the same names and coordinates as the `skeletons` message, rounded to a tenth of a millimetre.
 - `rot` is the SDK's hierarchical bone orientation for the bone ending at that joint, as a quaternion `[x, y, z, w]`: the bone's rotation relative to the bone it hangs from, with every bone pointing along its own +Y. For `hipCenter` it is the whole body's rotation relative to the Kinect. The mock sensor works these out from the joint positions the same way.
