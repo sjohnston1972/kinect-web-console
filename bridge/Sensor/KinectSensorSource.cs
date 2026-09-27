@@ -268,13 +268,18 @@ namespace KinectBridge.Sensor
 
         DepthImagePixel[] mapPixels;
         ColorImagePoint[] mapPoints;
+        readonly object mapGate = new object();   // the 3D scanner and the cut-out view both map, from different threads
 
         public bool MapDepthToColour(DepthFrame depth, int[] colourIndex)
         {
             KinectSensor sensor;
             lock (gate) sensor = active;
             if (sensor == null || !sensor.IsRunning) return false;
+            lock (mapGate) return Map(sensor, depth, colourIndex);
+        }
 
+        bool Map(KinectSensor sensor, DepthFrame depth, int[] colourIndex)
+        {
             var count = DepthFrame.Width * DepthFrame.Height;
             if (mapPixels == null) { mapPixels = new DepthImagePixel[count]; mapPoints = new ColorImagePoint[count]; }
             for (int i = 0; i < count; i++)

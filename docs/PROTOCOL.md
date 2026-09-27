@@ -70,7 +70,7 @@ Status is sent "newest only": if a browser falls behind, an unsent older status 
 
 | type | Contents | What the bridge does |
 | --- | --- | --- |
-| `subscribe` | `streams`: list of stream names | Records which streams this tab wants. Known names: `colour`, `depth`, `depthRaw`, `skeletons`, `fusion`. Unknown names are ignored |
+| `subscribe` | `streams`: list of stream names | Records which streams this tab wants. Known names: `colour`, `depth`, `depthRaw`, `skeletons`, `fusion`, `cutout`. Unknown names are ignored |
 | `sensor.reconnect` | none | Lets go of the sensor and opens it again (the Reconnect button) |
 | `tilt` | `angle`: degrees, -27 to 27 (rounded, and clamped to that range) | Moves the tilt motor, unless it moved less than 1 second ago, has moved 15 times in the last 20 seconds, or is still moving. Refusals come back as a `tiltRefused` error. Requests are refused, never queued |
 | `tilt.autoframe` | none | Works out a tilt that fits the first tracked person's head and feet in view (feet estimated from the floor or a typical height if hidden; the head is kept in view if the person is too tall to fit) and moves there through the same motor limits as `tilt`. Replies with `autoframe`, or a `tiltRefused` error |
@@ -88,7 +88,7 @@ Status is sent "newest only": if a browser falls behind, an unsent older status 
 | `fusion.preset` | `preset`: `object`, `person` or `room` | Switches preset. Clears the model, because the volume is rebuilt at the new size |
 | `fusion.colour` | `on`: true or false | Colour capture: colours go into the model, and into PLY and OBJ exports |
 | `fusion.turntable` | `on`: true or false | Turntable mode: only depth inside the scanning box and more than 3 cm above the floor (the skeleton tracker's floor plane) reaches Kinect Fusion, so turning the object with the Kinect still works. Applies from the next frame |
-| `snapshot` | none | Saves the newest colour and depth pictures as PNG files in `captures/snapshots`, named `snapshot-YYYYMMDD-HHMMSS-mmm-colour.png` and `-depth.png` (to the millisecond, so none overwrite). Replies with a `snapshot` message |
+| `snapshot` | optional `cutout`: true | Saves the newest colour and depth pictures as PNG files (with `cutout`, also `-cutout.png`: the tracked people on a transparent background, when anyone is tracked) in `captures/snapshots`, named `snapshot-YYYYMMDD-HHMMSS-mmm-colour.png` and `-depth.png` (to the millisecond, so none overwrite). Replies with a `snapshot` message |
 
 The page sends `subscribe` on every connect, every tab switch, and every change of view on the Live tab.
 
@@ -114,6 +114,7 @@ Pictures and depth travel as binary WebSocket messages. Every one starts with a 
 | 1 | `colour` | JPEG, 640x480 | Subscribed |
 | 2 | `depth` | JPEG, 640x480, coloured by distance: near is red and orange, far is green and blue, over 0.8 m to 4 m. Dimmed outside that range, near-black where there is no reading | Subscribed |
 | 3 | `depthRaw` | 320x240 distances, 16-bit little-endian, in millimetres, row by row from the top left. 0 means no reading. Every second pixel of the full depth picture in each direction | Subscribed |
+| 5 | `cutout` | JPEG, 640x480: the colour picture with only tracked people kept, on chroma green (the virtual green screen). People are found from the depth picture's person marks, mapped to the colour picture with the SDK's coordinate mapper | Subscribed |
 | 4 | `fusion` | JPEG, 640x480: the 3D scan so far, shaded (or in colour once colour has been captured), seen from where the Kinect is now. About 15 a second while scanning | Subscribed, while scanning, and once on pause |
 
 JPEG quality comes from `streamQuality.jpegQuality` in `settings.json` (80 by default).

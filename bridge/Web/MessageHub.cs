@@ -17,7 +17,7 @@ namespace KinectBridge.Web
 
         // The streams a browser may subscribe to
         static readonly HashSet<string> KnownStreams = new HashSet<string>
-            { "colour", "depth", "depthRaw", "skeletons", "fusion" };
+            { "colour", "depth", "depthRaw", "skeletons", "fusion", "cutout" };
 
         readonly object gate = new object();
         readonly List<ClientConnection> clients = new List<ClientConnection>();

@@ -24,9 +24,11 @@ namespace KinectBridge.Streams
         ColourFrame lastColour;
         DepthFrame lastDepth;
 
-        readonly StreamWorker colourWorker, depthWorker, rawWorker;
-        readonly JpegEncoder colourJpeg, depthJpeg;
+        readonly StreamWorker colourWorker, depthWorker, rawWorker, cutoutWorker;
+        readonly JpegEncoder colourJpeg, depthJpeg, cutoutJpeg;
         readonly byte[] depthPicture = new byte[DepthFrame.Width * DepthFrame.Height * 4];   // depth worker only
+        readonly byte[] cutoutPicture = new byte[ColourFrame.Width * ColourFrame.Height * 4]; // cut-out worker only
+        readonly CutoutMaker cutouts;
 
         int colourCount, depthCount;
         readonly Stopwatch rateClock = Stopwatch.StartNew();
@@ -41,10 +43,13 @@ namespace KinectBridge.Streams
             this.settings = settings;
             colourJpeg = new JpegEncoder(ColourFrame.Width, ColourFrame.Height, settings.JpegQuality);
             depthJpeg = new JpegEncoder(DepthFrame.Width, DepthFrame.Height, settings.JpegQuality);
+            cutoutJpeg = new JpegEncoder(ColourFrame.Width, ColourFrame.Height, settings.JpegQuality);
+            cutouts = new CutoutMaker(sensor);
 
             colourWorker = new StreamWorker("Colour stream", SendColour);
             depthWorker = new StreamWorker("Depth stream", SendDepthView);
             rawWorker = new StreamWorker("Raw depth stream", SendDepthRaw);
+            cutoutWorker = new StreamWorker("Cut-out stream", SendCutout);
 
             sensor.ColourFrameReady += OnColour;
             sensor.DepthFrameReady += OnDepth;
@@ -58,6 +63,7 @@ namespace KinectBridge.Streams
             lock (gate) { old = lastColour; lastColour = frame; }
             old?.Release();
             if (hub.AnySubscribed("colour")) colourWorker.Signal();
+            if (hub.AnySubscribed("cutout")) cutoutWorker.Signal();   // paced by the colour picture
         }
 
         void OnDepth(DepthFrame frame)
@@ -89,6 +95,24 @@ namespace KinectBridge.Streams
                 hub.BroadcastBinary("depth", depthJpeg.Encode(depthPicture, StreamHeader.DepthView, frame.Timestamp));
             }
             finally { frame.Release(); }
+        }
+
+        /// <summary>The colour picture with only the people kept, on green (the virtual green screen).</summary>
+        void SendCutout()
+        {
+            var colour = Borrow(ref lastColour);
+            var depth = Borrow(ref lastDepth);
+            try
+            {
+                if (colour == null || depth == null) return;
+                if (cutouts.Make(colour, depth, cutoutPicture, transparent: false) < 0) return;
+                hub.BroadcastBinary("cutout", cutoutJpeg.Encode(cutoutPicture, StreamHeader.Cutout, colour.Timestamp));
+            }
+            finally
+            {
+                colour?.Release();
+                depth?.Release();
+            }
         }
 
         void SendDepthRaw()
@@ -132,10 +156,10 @@ namespace KinectBridge.Streams
         }
 
         /// <summary>
-        /// Saves the newest colour and depth pictures as PNG files in captures\snapshots.
-        /// Returns the file names, or throws with a plain-English message.
+        /// Saves the newest colour and depth pictures as PNG files in captures\snapshots, and with cutout,
+        /// the people on a transparent background too. Returns the file names, or throws with a plain-English message.
         /// </summary>
-        public List<string> SaveSnapshot()
+        public List<string> SaveSnapshot(bool cutout = false)
         {
             var colour = Borrow(ref lastColour);
             var depth = Borrow(ref lastDepth);
@@ -158,8 +182,20 @@ namespace KinectBridge.Streams
                 var depthName = stem + "-depth.png";
                 ImageCopy.SavePng(depthBgra, DepthFrame.Width, DepthFrame.Height, Path.Combine(folder, depthName));
 
-                Log.Info($"Snapshot saved: {colourName} and {depthName}");
-                return new List<string> { colourName, depthName };
+                var names = new List<string> { colourName, depthName };
+                if (cutout)
+                {
+                    var cutoutBgra = new byte[ColourFrame.Width * ColourFrame.Height * 4];
+                    if (cutouts.Make(colour, depth, cutoutBgra, transparent: true) > 0)
+                    {
+                        var cutoutName = stem + "-cutout.png";
+                        ImageCopy.SavePng(cutoutBgra, ColourFrame.Width, ColourFrame.Height, Path.Combine(folder, cutoutName), withTransparency: true);
+                        names.Add(cutoutName);
+                    }
+                }
+
+                Log.Info("Snapshot saved: " + string.Join(", ", names));
+                return names;
             }
             finally
             {
@@ -188,6 +224,7 @@ namespace KinectBridge.Streams
             sensor.ColourFrameReady -= OnColour;
             sensor.DepthFrameReady -= OnDepth;
             colourWorker.Dispose();
+            cutoutWorker.Dispose();
             depthWorker.Dispose();
             rawWorker.Dispose();
             ForgetFrames();

@@ -56,11 +56,14 @@ namespace KinectBridge.Streams
             finally { bitmap.UnlockBits(data); }
         }
 
-        public static void SavePng(byte[] bgra, int width, int height, string path)
+        public static void SavePng(byte[] bgra, int width, int height, string path, bool withTransparency = false)
         {
-            using (var bitmap = new Bitmap(width, height, PixelFormat.Format32bppRgb))
+            var format = withTransparency ? PixelFormat.Format32bppArgb : PixelFormat.Format32bppRgb;
+            using (var bitmap = new Bitmap(width, height, format))
             {
-                Into(bitmap, bgra);
+                var data = bitmap.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.WriteOnly, format);
+                try { Marshal.Copy(bgra, 0, data.Scan0, width * height * 4); }
+                finally { bitmap.UnlockBits(data); }
                 bitmap.Save(path, ImageFormat.Png);
             }
         }

@@ -206,7 +206,7 @@ namespace KinectBridge.Web
             {
                 try
                 {
-                    var names = pump.SaveSnapshot();
+                    var names = pump.SaveSnapshot(cutout: msg.TryGetValue("cutout", out var cut) && cut is bool withCutout && withCutout);
                     MessageHub.Send(client, new
                     {
                         type = "snapshot",

@@ -412,3 +412,9 @@ dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 }
 #scrub.trimmed::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--text); cursor: pointer; }
 .trim { display: flex; flex-direction: column; gap: 6px; }
+
+/* Live tab: the cut-out view shows only the cut-out picture */
+.live-view:not([data-view="cutout"]) #cutout-figure { display: none; }
+.live-view[data-view="cutout"] #colour-figure,
+.live-view[data-view="cutout"] #depth-figure { display: none; }
+.live-view[data-view="cutout"] #cutout-figure { flex: none; max-width: none; width: min(100%, calc((100vh - 170px) * 4 / 3)); }   /* whole picture fits the window height */

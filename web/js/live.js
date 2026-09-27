@@ -9,6 +9,7 @@
     colour: ['colour'],
     depth: ['depth'],
     cloud: ['depthRaw'],
+    cutout: ['cutout'],
   };
   const NO_SIGNAL_MS = 2000;
   const LEGEND_TICKS_M = [0.8, 1.5, 2, 2.5, 3, 3.5, 4];
@@ -17,6 +18,7 @@
   let sensorReady = false;
   const colourDrawnAt = FrameView.attach($('colour-canvas'), 1, 'colour');
   const depthDrawnAt = FrameView.attach($('depth-canvas'), 2, 'depth');
+  const cutoutDrawnAt = FrameView.attach($('cutout-canvas'), 5, 'cutout');
 
   function buildLegend() {
     $('legend-bar').style.background = DepthColours.cssGradient();
@@ -74,6 +76,7 @@
     $('fps-colour').textContent = text('colour');
     $('fps-depth').textContent = text('depth');
     $('fps-cloud').textContent = text('depthRaw');
+    $('fps-cutout').textContent = text('cutout');
 
     const delays = VIEWS[view].map((s) => LiveStats.delays[s]).filter((d) => d !== undefined);
     $('delay').textContent = delays.length ? `${Math.max(0, Math.round(Math.max(...delays)))} ms` : '--';
@@ -81,6 +84,7 @@
     const now = performance.now();
     $('colour-figure').classList.toggle('stale', now - colourDrawnAt() > NO_SIGNAL_MS);
     $('depth-figure').classList.toggle('stale', now - depthDrawnAt() > NO_SIGNAL_MS);
+    $('cutout-figure').classList.toggle('stale', now - cutoutDrawnAt() > NO_SIGNAL_MS);
   }
 
   Connection.on('status', (msg) => {
@@ -96,7 +100,8 @@
   }
   $('highlight').addEventListener('change', () =>
     Connection.send({ type: 'live.settings', peopleHighlight: $('highlight').checked }));
-  $('snapshot-btn').addEventListener('click', () => Connection.send({ type: 'snapshot' }));
+  // In the cut-out view, the snapshot also saves the people on a transparent background
+  $('snapshot-btn').addEventListener('click', () => Connection.send({ type: 'snapshot', cutout: view === 'cutout' }));
 
   // The point cloud only draws while its tab and view are showing
   Tabs.onShow((name) => {

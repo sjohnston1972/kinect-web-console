@@ -18,7 +18,8 @@ Close the black window, or click in it and press Ctrl+C.
 - **View:** colour and depth side by side, either one on its own, or **3D points** (drag to orbit, scroll to zoom, right-drag to pan, double-click to reset).
 - **Depth colours:** near is red and orange, far is green and blue. The scale under the depth picture is in metres. Black means no reading: too close (under 0.8 m), too far, or a shiny or dark surface.
 - **Highlight people:** everything except people the Kinect is tracking turns grey. Step fully into view for the Kinect to pick you up.
-- **Take snapshot:** saves the colour and depth pictures as PNG files in `captures\snapshots`. Links to them appear under the button.
+- **Cut-out:** a virtual green screen. Only the people the Kinect is tracking are shown, on green. Step fully into view to be picked up.
+- **Take snapshot:** saves the colour and depth pictures as PNG files in `captures\snapshots`. In the Cut-out view it also saves the people on a transparent background (`-cutout.png`), ready to drop onto another picture. Links to the files appear under the button.
 - **Rates:** pictures per second reaching the page, and how old each picture is when it arrives.
 
 **Tilt:** drag the slider in the top right and let go, or press **Fit** to tilt so the tracked person's head and feet are in view (it says if they are too tall to fit from where they stand). The Kinect moves at most once a second and 15 times in 20 seconds, to protect its motor; the page says if it has to wait.

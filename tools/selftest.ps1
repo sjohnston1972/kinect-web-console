@@ -156,17 +156,18 @@ try {
     $status = WaitFor $c '"type":"status".*"state":"ready"' 6
     Check "Status arrives: mock sensor ready, amber light" { $status -and $status.mock -and $status.sensor.light -eq 'amber' }
 
-    Send $c '{"type":"subscribe","v":1,"streams":["colour","depth","depthRaw","skeletons"]}'
+    Send $c '{"type":"subscribe","v":1,"streams":["colour","depth","depthRaw","skeletons","cutout"]}'
     $null = Collect $c 0.5
     $messages = Collect $c 3
-    $count = @{ 1 = 0; 2 = 0; 3 = 0 }; $skeletonMessages = @(); $jpegOk = $true
+    $count = @{ 1 = 0; 2 = 0; 3 = 0; 5 = 0 }; $skeletonMessages = @(); $jpegOk = $true
     foreach ($m in $messages) {
-        if ($m.Binary) { $count[$m.Type]++; if ($m.Type -le 2 -and -not ($m.Data[9] -eq 0xFF -and $m.Data[10] -eq 0xD8)) { $jpegOk = $false } }
+        if ($m.Binary) { $count[$m.Type]++; if (($m.Type -le 2 -or $m.Type -eq 5) -and -not ($m.Data[9] -eq 0xFF -and $m.Data[10] -eq 0xD8)) { $jpegOk = $false } }
         elseif ($m.Text -match '"type":"skeletons"') { $skeletonMessages += $m.Text }
     }
     Check "Colour stream runs at 25+ frames a second" { @(($count[1] -ge 75), "$([math]::Round($count[1] / 3)) per second") }
     Check "Depth stream runs at 25+ frames a second" { @(($count[2] -ge 75), "$([math]::Round($count[2] / 3)) per second") }
     Check "Raw depth (3D points) runs at 25+ frames a second" { @(($count[3] -ge 75), "$([math]::Round($count[3] / 3)) per second") }
+    Check "Cut-out (green screen) stream runs at 25+ frames a second (issue #14)" { @(($count[5] -ge 75), "$([math]::Round($count[5] / 3)) per second") }
     Check "Pictures are JPEGs with the 9-byte header" { $jpegOk }
     Check "Skeletons run at 25+ a second" { @(($skeletonMessages.Count -ge 75), "$([math]::Round($skeletonMessages.Count / 3)) per second") }
     $sample = if ($skeletonMessages.Count) { $skeletonMessages[-1] | ConvertFrom-Json } else { $null }
@@ -215,6 +216,15 @@ try {
         if (-not $snap) { return "no reply" }
         $pngs = $snap.files | ForEach-Object { $b = DownloadBytes ("$origin" + $_.url); $b[1] -eq 0x50 -and $b[2] -eq 0x4E -and $b[3] -eq 0x47 }
         @((@($pngs | Where-Object { $_ }).Count -eq 2), ($snap.files.name -join ', '))
+    }
+    # Issue #14: in the cut-out view, a snapshot adds a PNG of the people with a transparent background
+    Send $c '{"type":"snapshot","v":1,"cutout":true}'
+    $cutSnap = WaitFor $c '"type":"snapshot"' 5
+    Check "A cut-out snapshot saves the people on a transparent background (issue #14)" {
+        $file = $cutSnap.files | Where-Object { $_.name -like '*-cutout.png' } | Select-Object -First 1
+        if (-not $file) { return "no cut-out file: $($cutSnap.files.name -join ', ')" }
+        $png = DownloadBytes ("$origin" + $file.url)
+        @(($png[25] -eq 6), "$($file.name), PNG colour type $($png[25]) (6 = with transparency)")
     }
     Send $c '{"type":"snapshot","v":1}'
     Send $c '{"type":"snapshot","v":1}'

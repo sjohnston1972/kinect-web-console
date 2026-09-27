@@ -61,6 +61,13 @@
           <div class="legend-ends"><span>near</span><span>far</span></div>
         </div>
       </figure>
+      <figure class="stream stale" id="cutout-figure">
+        <figcaption>Cut-out: tracked people on green</figcaption>
+        <div class="frame">
+          <canvas id="cutout-canvas" width="640" height="480"></canvas>
+          <div class="no-signal">Waiting for pictures</div>
+        </div>
+      </figure>
       <div class="cloud" id="cloud"></div>
     </div>
 
@@ -71,8 +78,9 @@
         <label><input type="radio" name="live-view" value="colour"><span>Colour</span></label>
         <label><input type="radio" name="live-view" value="depth"><span>Depth</span></label>
         <label><input type="radio" name="live-view" value="cloud"><span>3D points</span></label>
+        <label title="Only the tracked people, on a green background. Snapshots also save them on a transparent background."><input type="radio" name="live-view" value="cutout"><span>Cut-out</span></label>
       </div>
-      <p class="muted small cloud-hint">3D points: drag to orbit, scroll to zoom, right-drag to pan, double-click to reset.</p>
+      <p class="muted small cloud-hint">3D points: drag to orbit, scroll to zoom, right-drag to pan, double-click to reset. Cut-out: step fully into view to be picked up.</p>
 
       <label class="check" id="highlight-row"><input type="checkbox" id="highlight"> Highlight people</label>
 
@@ -85,6 +93,7 @@
         <dt>Colour</dt><dd id="fps-colour">--</dd>
         <dt>Depth</dt><dd id="fps-depth">--</dd>
         <dt>3D points</dt><dd id="fps-cloud">--</dd>
+        <dt>Cut-out</dt><dd id="fps-cutout">--</dd>
         <dt>Delay</dt><dd id="delay">--</dd>
       </dl>
       <p class="muted small">Delay is how old a picture is when it reaches this page.</p>

@@ -172,6 +172,7 @@ One WebSocket at ws://localhost:8766/ws carries everything live: images as binar
 | 2 | Depth view | JPEG, colourised | Browser subscribed |
 | 3 | Depth raw | 16-bit depth in mm, 320x240, little-endian | Point cloud view open |
 | 4 | Fusion preview | JPEG of the shaded model | Scan running |
+| 5 | Cut-out | JPEG, the colour picture with only tracked people, on green | Cut-out view open |
 
 **JSON messages (bridge to browser)**
 

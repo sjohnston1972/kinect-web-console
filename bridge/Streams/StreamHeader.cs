@@ -15,6 +15,7 @@ namespace KinectBridge.Streams
         public const byte DepthView = 2;
         public const byte DepthRaw = 3;
         public const byte FusionPreview = 4;
+        public const byte Cutout = 5;
 
         public static void Write(Stream stream, byte type, long timestamp)
         {
