@@ -66,6 +66,8 @@ namespace KinectBridge.Fusion
         TurntableFilter filter;                  // set while scanning in turntable mode
         bool colourUsed;                         // colour was on for at least part of this scan
         int lostFrames;
+        Relocator relocator;                     // finds the Kinect's place again after tracking is lost (null if unavailable)
+        int recovered;                           // times tracking was found again this scan by recognising the view
         int integrated;
         string scanId;
         MotionReading gravity;                   // accelerometer at the start of the scan, for levelling exports
@@ -246,6 +248,8 @@ namespace KinectBridge.Fusion
             colourInput = new FusionColorImageFrame(Width, Height);
             shadedSurface = new FusionColorImageFrame(Width, Height);
             shadedColour = new FusionColorImageFrame(Width, Height);
+            try { relocator = new Relocator(Width, Height); }
+            catch (Exception ex) { relocator = null; Log.Warn("3D scan: automatic recovery after lost tracking is not available: " + ex.Message); }
             defaultWorldToVolume = volume.GetCurrentWorldToVolumeTransform();
             Log.Info($"3D scan: {preset.Label} volume ready on {processorText}, {preset.SizeX:0.00} x {preset.SizeY:0.00} x {preset.SizeZ:0.00} m at {preset.VoxelMm:0.0} mm detail");
             return null;
@@ -304,6 +308,8 @@ namespace KinectBridge.Fusion
                 placement = "centred on where the Kinect points (it cannot see the floor, so the box could not be stood on it)";
             }
             volume.ResetReconstruction(worldToCamera, worldToVolume);
+            relocator?.Reset();
+            recovered = 0;
             integrated = 0;
             lostFrames = 0;
             colourUsed = false;
@@ -314,7 +320,8 @@ namespace KinectBridge.Fusion
 
         void DisposeVolume()
         {
-            foreach (var d in new IDisposable[] { volume, depthFloat, pointCloud, colourInput, shadedSurface, shadedColour }) d?.Dispose();
+            foreach (var d in new IDisposable[] { volume, depthFloat, pointCloud, colourInput, shadedSurface, shadedColour, relocator }) d?.Dispose();
+            relocator = null;
             volume = null;
             volumePreset = null;
         }
@@ -353,9 +360,10 @@ namespace KinectBridge.Fusion
                     volume.DepthToDepthFloatFrame(pixels, depthFloat, volumePreset.MinDepth, volumePreset.MaxDepth, false);
 
                     bool tracked;
+                    var colourReady = colour && PrepareColour(depth);
                     try
                     {
-                        tracked = colour && PrepareColour(depth)
+                        tracked = colourReady
                             ? volume.ProcessFrame(depthFloat, colourInput, FusionDepthProcessor.DefaultAlignIterationCount,
                                 FusionDepthProcessor.DefaultIntegrationWeight, FusionDepthProcessor.DefaultColorIntegrationOfAllAngles, worldToCamera)
                             : volume.ProcessFrame(depthFloat, FusionDepthProcessor.DefaultAlignIterationCount,
@@ -373,10 +381,24 @@ namespace KinectBridge.Fusion
                         if (lostFrames >= LostAfterFrames) Log.Info("3D scan: tracking found again");
                         lostFrames = 0;
                         if (colour) colourUsed = true;
+                        // Remember this view every few frames, so a lost scan can find its place again
+                        if (relocator != null && relocator.Due && (colourReady || PrepareColour(depth)))
+                            relocator.Tracked(depthFloat, colourInput, worldToCamera);
+                        else relocator?.Tracked(depthFloat, null, worldToCamera);
                     }
-                    else if (++lostFrames == LostAfterFrames)
+                    else
                     {
-                        Log.Warn("3D scan: tracking lost");
+                        if (++lostFrames == LostAfterFrames) Log.Warn("3D scan: tracking lost");
+                        // While lost, look up the remembered views every few frames and try the likeliest positions
+                        if (lostFrames >= LostAfterFrames && lostFrames % 3 == 0 && relocator != null
+                            && (colourReady || PrepareColour(depth))
+                            && relocator.TryRecover(volume, depthFloat, colourInput, out var found))
+                        {
+                            worldToCamera = found;
+                            lostFrames = 0;
+                            recovered++;
+                            Log.Info("3D scan: tracking found again by recognising the view");
+                        }
                     }
 
                     processedCount++;
@@ -549,11 +571,12 @@ namespace KinectBridge.Fusion
             State s;
             string preset, error, warning, processor, id;
             bool col, tt;
+            int found;
             int lost, frames;
             lock (gate)
             {
                 s = state; preset = presetName; error = lastError; warning = processorWarning; processor = processorText;
-                col = colour; tt = turntable; lost = lostFrames; frames = integrated; id = scanId;
+                col = colour; tt = turntable; lost = lostFrames; frames = integrated; id = scanId; found = recovered;
                 var seconds = fpsClock.Elapsed.TotalSeconds;
                 if (seconds >= 1)
                 {
@@ -583,6 +606,7 @@ namespace KinectBridge.Fusion
                 ["fps"] = s == State.Scanning ? fps : 0,
                 ["colour"] = col,
                 ["turntable"] = tt,
+                ["recovered"] = found,
                 ["processor"] = processor,
                 ["processorWarning"] = warning,
                 ["error"] = error,

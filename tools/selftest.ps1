@@ -270,6 +270,7 @@ try {
     $fusion = $messages | Where-Object { -not $_.Binary -and $_.Text -match '"type":"fusion"' } | Select-Object -Last 1 | ForEach-Object { $_.Text | ConvertFrom-Json }
     $previews = @($messages | Where-Object { $_.Binary -and $_.Type -eq 4 }).Count
     Check "Kinect Fusion scans and keeps tracking" { @(($fusion -and $fusion.state -eq 'scanning' -and $fusion.tracking -eq 'ok' -and $fusion.framesIntegrated -gt 30), "$($fusion.framesIntegrated) frames, $($fusion.processor)") }
+    Check "Scan status reports automatic recoveries (issue #11)" { @(($null -ne $fusion.recovered), "recovered: $($fusion.recovered)") }
     Check "The shaded preview streams" { @(($previews -ge 20), "$previews pictures in 4 s") }
     Send $c '{"type":"fusion.pause","v":1}'
 

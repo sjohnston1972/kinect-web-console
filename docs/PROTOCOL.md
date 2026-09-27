@@ -218,6 +218,7 @@ Each take is `captures/mocap/<id>.json`, and the page loads it from `/captures/m
   "fps": 30.3,
   "colour": false,
   "turntable": false,
+  "recovered": 0,
   "processor": "Graphics card: AMD Radeon RX 7700 XT",
   "processorWarning": null,
   "error": null,
@@ -227,7 +228,7 @@ Each take is `captures/mocap/<id>.json`, and the page loads it from `/captures/m
 ```
 
 - `state` is `idle`, `scanning` or `paused`. `tracking` is `ok`, `lost` (8 depth frames in a row could not be lined up with the model) or `idle`.
-- `framesIntegrated` is how many depth frames have been merged into this scan. `fps` is frames processed per second while scanning.
+- `framesIntegrated` is how many depth frames have been merged into this scan. `recovered` is how many times this scan found its place again automatically after tracking was lost: while tracking is good, Kinect Fusion's camera pose finder remembers a view every 5 frames; while lost, it looks up the most similar remembered views every 3 frames and tries lining the depth picture up against the model from each. `fps` is frames processed per second while scanning.
 - `processor` says where Kinect Fusion runs. `processorWarning` is set when it had to fall back to the processor (slow, and at most 256 voxels per side). `error` explains an automatic pause, for example when the Kinect was unplugged.
 - `presets` lists all three with their size in metres (width, height, depth), detail in millimetres per voxel, and the distance from the Kinect to the front of the scanned box.
 - `placement` says where the box sits for this scan, in words (for example "standing on the floor, 0.74 m below the Kinect").
