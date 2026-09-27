@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kinect Web Console</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">Kinect Web Console</div>
+
+  <div class="status-pill" id="status-pill">
+    <span class="light" id="status-light" data-light="off"></span>
+    <span id="status-text">Connecting to the bridge</span>
+  </div>
+
+  <span class="badge" id="mock-badge" hidden>Mock mode</span>
+
+  <div class="header-spacer"></div>
+
+  <!-- Tilt control is wired up in Phase 2. Until then it only shows the current angle. -->
+  <div class="tilt" title="Tilt control is not built yet. It arrives in Phase 2.">
+    <label for="tilt-slider">Tilt</label>
+    <input type="range" id="tilt-slider" min="-27" max="27" step="1" value="0" disabled>
+    <output id="tilt-value">--</output>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" data-tab="live">Live</button>
+  <button role="tab" data-tab="skeleton">Skeleton</button>
+  <button role="tab" data-tab="mocap">Motion capture</button>
+  <button role="tab" data-tab="scan">3D scan</button>
+  <button role="tab" data-tab="status">Status</button>
+</nav>
+
+<main class="workspace">
+
+  <section class="tab-panel" data-panel="live" hidden>
+    <div class="main-view placeholder"><p>Live colour and depth views arrive in Phase 2.</p></div>
+    <aside class="control-panel"><h2>Live view</h2><p class="muted">Controls arrive in Phase 2.</p></aside>
+  </section>
+
+  <section class="tab-panel" data-panel="skeleton" hidden>
+    <div class="main-view placeholder"><p>Skeleton tracking arrives in Phase 3.</p></div>
+    <aside class="control-panel"><h2>Skeleton</h2><p class="muted">Controls arrive in Phase 3.</p></aside>
+  </section>
+
+  <section class="tab-panel" data-panel="mocap" hidden>
+    <div class="main-view placeholder"><p>Motion capture arrives in Phase 4.</p></div>
+    <aside class="control-panel"><h2>Motion capture</h2><p class="muted">Controls arrive in Phase 4.</p></aside>
+  </section>
+
+  <section class="tab-panel" data-panel="scan" hidden>
+    <div class="main-view placeholder"><p>3D scanning arrives in Phase 5.</p></div>
+    <aside class="control-panel"><h2>3D scan</h2><p class="muted">Controls arrive in Phase 5.</p></aside>
+  </section>
+
+  <section class="tab-panel" data-panel="status" hidden>
+    <div class="main-view">
+      <div class="fault-card" id="fault-card" data-light="off">
+        <span class="light big" id="fault-light" data-light="off"></span>
+        <div>
+          <h2 id="fault-title">Connecting to the bridge</h2>
+          <p id="fault-help"></p>
+        </div>
+      </div>
+
+      <div class="cards">
+        <div class="card">
+          <h3>Sensor</h3>
+          <dl>
+            <dt>Mode</dt><dd id="st-mode">--</dd>
+            <dt>State</dt><dd id="st-state">--</dd>
+            <dt>Detail</dt><dd id="st-detail">--</dd>
+            <dt>Bridge running for</dt><dd id="st-uptime">--</dd>
+          </dl>
+        </div>
+
+        <div class="card">
+          <h3>Is the Kinect level?</h3>
+          <dl>
+            <dt>Tilt motor</dt><dd id="st-tilt">--</dd>
+            <dt>Side to side</dt><dd id="st-side">--</dd>
+            <dt>Front to back</dt><dd id="st-front">--</dd>
+            <dt>Accelerometer (g)</dt><dd id="st-accel">--</dd>
+          </dl>
+          <p class="muted small">Side to side should be near 0 degrees. Front to back includes the tilt motor's angle.</p>
+        </div>
+
+        <div class="card">
+          <h3>Stream rates</h3>
+          <dl id="st-fps"><dt>Streams</dt><dd>None running yet</dd></dl>
+        </div>
+      </div>
+    </div>
+
+    <aside class="control-panel">
+      <h2>Controls</h2>
+      <button id="reconnect-btn" class="button" disabled title="Waiting for the bridge">Reconnect sensor</button>
+      <h2>Bridge log</h2>
+      <div class="log" id="log" aria-live="polite"></div>
+    </aside>
+  </section>
+
+</main>
+
+<script src="js/connection.js"></script>
+<script src="js/status.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

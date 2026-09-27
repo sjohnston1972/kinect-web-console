@@ -1,0 +1,7 @@
+{
+  "port": 8766,
+  "capturesFolder": "captures",
+  "streamQuality": {
+    "jpegQuality": 80
+  }
+}

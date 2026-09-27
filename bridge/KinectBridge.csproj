@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- .NET Framework 4.8.1, 64-bit: Microsoft.Kinect only loads on .NET Framework, not modern .NET -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net481</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <RootNamespace>KinectBridge</RootNamespace>
+    <AssemblyName>KinectBridge</AssemblyName>
+    <!-- One fixed output folder, so run.cmd always knows where the program is -->
+    <OutputPath>bin\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <!-- The SDK installer sets KINECTSDK10_DIR. A window opened before the install won't have it yet,
+       so fall back to the folder recorded in docs/SETUP.md. -->
+  <PropertyGroup>
+    <KinectSdkDir>$(KINECTSDK10_DIR)</KinectSdkDir>
+    <KinectSdkDir Condition="'$(KinectSdkDir)' == ''">$(ProgramW6432)\Microsoft SDKs\Kinect\v1.8\</KinectSdkDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Microsoft.Kinect">
+      <HintPath>$(KinectSdkDir)Assemblies\Microsoft.Kinect.dll</HintPath>
+    </Reference>
+    <!-- JSON reading and writing, built into .NET Framework -->
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+
+  <Target Name="CheckKinectSdk" BeforeTargets="ResolveAssemblyReferences"
+          Condition="!Exists('$(KinectSdkDir)Assemblies\Microsoft.Kinect.dll')">
+    <Error Text="Kinect SDK v1.8 not found in $(KinectSdkDir). Install it first: see docs\SETUP.md." />
+  </Target>
+
+</Project>

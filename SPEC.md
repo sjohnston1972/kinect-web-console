@@ -67,7 +67,7 @@ The Kinect's data flows down through the bridge, which encodes it and streams it
 **Technical decisions**
 
 - **Project:** an SDK-style .csproj targeting net481 (.NET Framework 4.8.1), platform x64, built with `dotnet build`. Reference Microsoft.Kinect.dll and Microsoft.Kinect.Toolkit.Fusion.dll from the SDK and Toolkit install folders. Locate them on disk; do not assume paths. Copy the x64 native Kinect Fusion DLL into the output folder.
-- **Web server:** the built-in HttpListener with WebSocket support, on http://localhost:8765/. If Windows needs a one-time URL reservation, document the command in docs/SETUP.md. The app must not need administrator rights on every run.
+- **Web server:** the built-in HttpListener with WebSocket support, on http://localhost:8766/. Port 8766, not 8765, because ShellMate-Portable already uses 8765 on this PC. No URL reservation is needed: Windows lets a normal user listen on a localhost address. The app must not need administrator rights on every run.
 - **Front end:** plain HTML, CSS and JavaScript with no build step. Three.js is saved into web/vendor for the 3D views. No CDN and no internet access at run time.
 - **Settings:** a settings.json file holds the port, captures folder, and stream quality.
 - **Mock mode:** running with `--mock` swaps the real sensor for a fake one that produces test frames and a walking skeleton.
@@ -83,6 +83,7 @@ C:\local cc projects\kinect\
 ├── README.md              What it is and how to run it
 ├── SPEC.md                This spec
 ├── run.cmd                Double-click to start the bridge and open the page
+├── run-mock.cmd           The same, with the fake sensor
 ├── settings.json          Port, captures folder, stream quality
 ├── bridge/                The C# program that talks to the Kinect
 │   ├── KinectBridge.csproj   The build recipe: target and references
@@ -98,6 +99,7 @@ C:\local cc projects\kinect\
 │   ├── css/
 │   ├── js/                   One file per tab, plus the connection code
 │   └── vendor/three/         Three.js, saved locally
+├── logs/                  Bridge log files, excluded from Git
 ├── captures/              Saved output, excluded from Git
 │   ├── snapshots/
 │   ├── scans/
@@ -157,7 +159,7 @@ Five features, each a tab in the web page, all fed by the same sensor connection
 
 ## Data link
 
-One WebSocket at ws://localhost:8765/ws carries everything live: images as binary messages, everything else as JSON text. Every JSON message has a `type` field and a protocol version `v: 1`. Claude Code keeps docs/PROTOCOL.md in step with the code.
+One WebSocket at ws://localhost:8766/ws carries everything live: images as binary messages, everything else as JSON text. Every JSON message has a `type` field and a protocol version `v: 1`. Claude Code keeps docs/PROTOCOL.md in step with the code.
 
 **Binary messages (bridge to browser).** Byte 0 is the stream type, bytes 1 to 8 are a timestamp in milliseconds (little-endian), and the rest is the payload.
 
@@ -184,6 +186,7 @@ One WebSocket at ws://localhost:8765/ws carries everything live: images as binar
 | type | Contents |
 | --- | --- |
 | subscribe | The streams the current tab needs |
+| sensor.reconnect | Let go of the sensor and open it again (the Status tab's Reconnect button) |
 | tilt | Target angle in degrees |
 | skeleton.settings | Standing or seated, smoothing preset |
 | mocap.start, mocap.stop | Start or stop a take |
@@ -272,7 +275,7 @@ The bridge starts, serves the page, opens the WebSocket, and reports status. Moc
 
 ### Non-functional requirements
 
-- **Local only:** the server binds to 127.0.0.1. No outbound network calls and no telemetry at run time.
+- **Local only:** the server answers this PC only. HttpListener registers http://localhost:8766/ with Windows, which refuses requests addressed to the PC's network IP. The bridge also refuses (403) any request whose sender is not this PC, and any WebSocket opened by a page from another website. No outbound network calls and no telemetry at run time.
 - **No admin rights** needed to run the app once setup is done.
 - **Fault isolation:** an error in one feature is logged and shown on its tab, and the rest of the app keeps running.
 - **Low latency:** the newest-frame rule applies to every stream, and the PC stays responsive while the app runs.

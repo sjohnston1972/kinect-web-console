@@ -59,4 +59,6 @@ The bridge program links to these files. They were found on disk, not assumed.
 
 ## 6. Web address reservation
 
-The bridge serves the page at `http://localhost:8765/`. Windows lets a normal user listen on a `localhost` address without a reservation, so no administrator command is expected. If Phase 1 finds otherwise, the one-time command goes here.
+The bridge serves the page at `http://localhost:8766/`. No reservation is needed: Windows lets a normal user listen on a `localhost` address, and Phase 1 confirmed the bridge starts without administrator rights.
+
+Port 8766 is used because ShellMate-Portable already uses 8765 on this PC. To change the port, edit `"port"` in `settings.json`.
