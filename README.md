@@ -77,3 +77,4 @@ The Status tab also shows the tilt angle, whether the Kinect is level, the bridg
 - Sunlight and other infrared sources make the depth picture noisy.
 - Settings (port, captures folder, picture quality) live in `settings.json`.
 - Logs are in the `logs` folder, capped at 1 MB per file with the three most recent older files kept.
+- `tools\look.ps1` grabs what the Kinect sees right now (colour and depth pictures in `captures\look`, plus a summary of distances and people). It lets someone help check a set-up remotely. Run it while the bridge is running: `powershell -File tools\look.ps1`.

@@ -105,6 +105,7 @@ C:\local cc projects\kinect\
 │   ├── snapshots/
 │   ├── scans/
 │   └── mocap/
+├── tools/                 Helper scripts: look.ps1 (see what the Kinect sees now), selftest.ps1 (checks every feature)
 └── docs/
     ├── SETUP.md              One-time setup steps and expected results
     └── PROTOCOL.md           The message list below, kept current
