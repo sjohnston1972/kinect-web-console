@@ -218,7 +218,24 @@
 
   // ----- Messages -----
 
+  // Hands-free: the gesture presses Record or Stop, and beeps follow the recording's progress
+  HandsFree.register('mocap', {
+    label: () => (state === 'countdown' || state === 'recording' ? 'stop recording' : 'start recording'),
+    run: () => { if (!$('mocap-record').disabled) $('mocap-record').click(); else HandsFree.sounds.problem(); },
+  });
+  let lastCountdown = 0;
+
+  function soundsFor(msg) {
+    if (msg.state === 'countdown' && msg.countdown !== lastCountdown) HandsFree.sounds.countdown();
+    lastCountdown = msg.state === 'countdown' ? msg.countdown : 0;
+    if (msg.state === 'recording' && state === 'countdown') HandsFree.sounds.started();
+    if (msg.state === 'saving' && state === 'recording') HandsFree.sounds.stopped();
+    if (msg.event && msg.event.kind === 'saved') HandsFree.sounds.saved();
+    if (msg.event && msg.event.kind === 'failed') HandsFree.sounds.problem();
+  }
+
   Connection.on('mocap', (msg) => {
+    soundsFor(msg);
     state = msg.state;
     peopleNow = msg.peopleNow;
     if (msg.takes) {

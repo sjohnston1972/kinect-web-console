@@ -381,3 +381,23 @@ dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .lost-banner em { display: block; font-style: normal; margin-top: 4px; }
 .canvas-note { position: absolute; top: 10px; left: 10px; padding: 3px 10px; border-radius: 6px; background: rgba(0, 0, 0, .6); color: #fff; font-size: 12px; }
 .canvas-note:empty { display: none; }
+
+/* Hands-free progress, shown at the top of the page while a hand is held up */
+.handsfree-indicator {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  min-width: 360px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: rgba(20, 22, 26, .9);
+  color: #fff;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+  font-weight: 600;
+  text-align: center;
+}
+.handsfree-indicator[hidden] { display: none; }
+.handsfree-indicator .bar { margin-top: 8px; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, .2); overflow: hidden; }
+.handsfree-indicator .fill { height: 100%; width: 0; background: var(--green); }

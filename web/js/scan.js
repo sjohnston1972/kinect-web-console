@@ -15,11 +15,13 @@
   const aimDrawnAt = FrameView.attach($('scan-canvas'), 2, 'depth');
   let aiming = null;
 
-  function updateAiming(state) {
+  function updateAiming(state, force) {
     const aim = state === 'idle';
-    if (aim === aiming) return;
+    if (aim === aiming && !force) return;
     aiming = aim;
-    Tabs.setStreams('scan', aim ? ['fusion', 'depth'] : ['fusion']);
+    // Skeletons too while hands-free is on, so a raised hand can be seen
+    const streams = aim ? ['fusion', 'depth'] : ['fusion'];
+    Tabs.setStreams('scan', HandsFree.enabled ? streams.concat('skeletons') : streams);
     $('scan-canvas-note').textContent = aim ? 'Aiming: live depth picture. The model replaces it when scanning starts.' : '';
   }
 
@@ -109,7 +111,22 @@
     Connection.send({ type: 'export', kind: 'scan', format });
   }
 
-  Connection.on('fusion', (msg) => { status = msg; updateAiming(msg.state); render(); });
+  // Hands-free: the gesture presses Start or Pause, with a beep for each
+  HandsFree.register('scan', {
+    label: () => (status && status.state === 'scanning' ? 'pause the scan' : 'start scanning'),
+    run: () => { if (!$('scan-start').disabled) $('scan-start').click(); else HandsFree.sounds.problem(); },
+  });
+  HandsFree.onChange(() => updateAiming(status ? status.state : 'idle', true));
+
+  Connection.on('fusion', (msg) => {
+    if (status && msg.state !== status.state) {
+      if (msg.state === 'scanning') HandsFree.sounds.started();
+      else if (status.state === 'scanning') HandsFree.sounds.stopped();
+    }
+    status = msg;
+    updateAiming(msg.state);
+    render();
+  });
 
   Connection.on('export', async (msg) => {
     if (msg.kind !== 'scan') return;

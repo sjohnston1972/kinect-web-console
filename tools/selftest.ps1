@@ -335,6 +335,18 @@ try {
         }
         Check "Skeleton tab lists Person 1 then Person 2" { $people = Js "document.getElementById('skeleton-people').innerText"; @(($people -match '^Person 1.*Person 2'), ($people -replace "`n", '; ')) }
         Check "Status tab shows the mock sensor" { (Js "document.getElementById('st-mode').textContent") -match 'Mock' }
+
+        # Issue #7: the mock's waving person holds a hand above their head, so hands-free should press Record by itself
+        $null = Js "document.querySelector('.tabs button[data-tab=mocap]').click(); document.querySelector('.handsfree-switch').click(); 'on'"
+        $seenProgress = $false; $started = $false; $end = (Get-Date).AddSeconds(5)
+        while ((Get-Date) -lt $end -and -not $started) {
+            Start-Sleep -Milliseconds 300
+            if (-not (Js "document.getElementById('handsfree-indicator').hidden")) { $seenProgress = $true }
+            $started = (Js "document.getElementById('mocap-record').textContent") -match 'Stop'
+        }
+        Check "Hands-free: a raised hand shows progress, then starts recording (issue #7)" { @(($seenProgress -and $started), "progress shown: $seenProgress, recording started: $started") }
+        $null = Js "document.getElementById('mocap-record').click(); document.querySelector('.handsfree-switch').click(); 'off'"
+        Start-Sleep -Seconds 1
         $null = Js "1"   # collect any last errors
         Check "No script errors on any tab" { if ($problems.Count) { "$($problems.Count): " + ($problems | Select-Object -First 2) -join ' | ' } else { $true } }
         Close $cdp

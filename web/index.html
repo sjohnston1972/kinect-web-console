@@ -35,6 +35,8 @@
   <button role="tab" data-tab="status">Status</button>
 </nav>
 
+<div class="handsfree-indicator" id="handsfree-indicator" hidden><span class="label"></span><div class="bar"><div class="fill"></div></div></div>
+
 <main class="workspace">
 
   <section class="tab-panel" data-panel="live" hidden>
@@ -148,6 +150,7 @@
       <h2>Record</h2>
       <button id="mocap-record" class="button record" disabled>&#9679; Record</button>
       <p class="muted small" id="mocap-state"></p>
+      <label class="check" title="Hold a hand above your head for 2 seconds to start or stop recording. Beeps confirm each step."><input type="checkbox" class="handsfree-switch"> Hands-free (raise a hand)</label>
 
       <div id="player" hidden>
         <h2>Playing</h2>
@@ -216,6 +219,7 @@
         <button id="scan-reset" class="button" disabled>Reset</button>
       </div>
       <p class="muted small" id="scan-state"></p>
+      <label class="check" title="Hold a hand above your head for 2 seconds to start or pause scanning. Beeps confirm each step."><input type="checkbox" class="handsfree-switch"> Hands-free (raise a hand)</label>
       <p class="muted small" id="scan-hint">Tip: keep what you are scanning still and move the Kinect slowly around it. Turning the thing instead (a person on a swivel chair) only works when nothing else is within range, because Kinect Fusion tracks by the whole scene.</p>
       <p class="small warn-text" id="scan-warning" hidden></p>
 
@@ -296,6 +300,7 @@
 <script src="js/status.js"></script>
 <script src="js/tilt.js"></script>
 <script src="js/live.js"></script>
+<script src="js/handsfree.js"></script>
 <script src="js/skeleton.js"></script>
 <script src="js/mocap.js"></script>
 <script src="js/scan.js"></script>

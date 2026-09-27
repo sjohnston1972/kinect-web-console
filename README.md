@@ -43,6 +43,15 @@ Close the black window, or click in it and press Ctrl+C.
 - **Export BVH** makes a file for Blender: File, Import, Motion Capture (.bvh), default settings. The skeleton stands in the middle of Blender's floor, facing the front view. To find it: click it in the Outliner (top right), then View, Frame Selected. Orbit by dragging with the middle mouse button, pan with Shift and middle-drag, zoom with the scroll wheel, and play with the spacebar. It holds one person and needs a take recorded in Standing mode. Starting a take with a T-pose (arms straight out) makes it easy to line up in Blender.
 - **Download JSON** gives the take exactly as recorded, every joint of every frame.
 
+## Hands-free
+
+On the **Motion capture** and **3D scan** tabs, tick **Hands-free (raise a hand)**. Then, from across the room:
+
+- Hold a hand **above your head for 2 seconds** to press the tab's main button: Record or Stop, or Start or Pause scanning. A bar at the top of the page fills up while you hold.
+- Beeps confirm each step: a short beep when your hand is seen, one beep per countdown second, rising beeps when recording or scanning starts, falling beeps when it stops, and a little tune when a take is saved. A low buzz means it could not act (for example, the Kinect is not ready).
+- Lower both hands below your shoulders before the next gesture.
+- The switch starts off each time the page opens (the browser only plays sound after a click).
+
 ## The 3D scan tab
 
 1. Pick a **preset**: **Object** (a 1 m box, 2 mm detail, starting 0.6 m away, centred on where the Kinect points), **Person** (1.5 m wide and 2 m tall, 4 mm detail, starting 1 m away, standing on the floor: also right for a chair) or **Room** (4 m by 3 m by 4 m, 8 mm detail).
