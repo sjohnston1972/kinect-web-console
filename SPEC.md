@@ -231,10 +231,10 @@ Claude Code installs the build tools, finds the Kinect library files on disk, ch
 
 The bridge starts, serves the page, opens the WebSocket, and reports status. Mock mode is built here so later phases can be developed without the Kinect.
 
-- [ ] Double-clicking `run.cmd` starts the bridge and opens the page in the browser
-- [ ] Status light is green with the Kinect, amber with `--mock`, red with it unplugged
-- [ ] Unplugging and replugging the Kinect recovers within 5 seconds without a restart
-- [ ] The page does not load from another device on the home network
+- [x] Double-clicking `run.cmd` starts the bridge and opens the page in the browser
+- [x] Status light is green with the Kinect, amber with `--mock`, red with it unplugged
+- [x] Unplugging and replugging the Kinect recovers within 5 seconds without a restart
+- [x] The page does not load from another device on the home network
 
 ### Phase 2: Live view
 
