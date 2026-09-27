@@ -13,17 +13,24 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
 
-  <!-- The SDK installer sets KINECTSDK10_DIR. A window opened before the install won't have it yet,
-       so fall back to the folder recorded in docs/SETUP.md. -->
+  <!-- The installers set KINECTSDK10_DIR and KINECT_TOOLKIT_DIR. A window opened before the install won't have
+       them yet, so fall back to the folders recorded in docs/SETUP.md. -->
   <PropertyGroup>
     <KinectSdkDir>$(KINECTSDK10_DIR)</KinectSdkDir>
     <KinectSdkDir Condition="'$(KinectSdkDir)' == ''">$(ProgramW6432)\Microsoft SDKs\Kinect\v1.8\</KinectSdkDir>
+    <KinectToolkitDir>$(KINECT_TOOLKIT_DIR)</KinectToolkitDir>
+    <KinectToolkitDir Condition="'$(KinectToolkitDir)' == ''">$(ProgramW6432)\Microsoft SDKs\Kinect\Developer Toolkit v1.8.0\</KinectToolkitDir>
   </PropertyGroup>
 
   <ItemGroup>
     <Reference Include="Microsoft.Kinect">
       <HintPath>$(KinectSdkDir)Assemblies\Microsoft.Kinect.dll</HintPath>
     </Reference>
+    <!-- Kinect Fusion (3D scanning): the C# library, and the native 64-bit engine it calls, copied next to the program -->
+    <Reference Include="Microsoft.Kinect.Toolkit.Fusion">
+      <HintPath>$(KinectToolkitDir)Assemblies\Microsoft.Kinect.Toolkit.Fusion.dll</HintPath>
+    </Reference>
+    <None Include="$(KinectToolkitDir)Redist\amd64\KinectFusion180_64.dll" Link="KinectFusion180_64.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     <!-- JSON reading and writing, built into .NET Framework -->
     <Reference Include="System.Web.Extensions" />
     <!-- JPEG and PNG encoding, and drawing the mock sensor's test pictures -->
@@ -35,6 +42,11 @@
   <Target Name="CheckKinectSdk" BeforeTargets="ResolveAssemblyReferences"
           Condition="!Exists('$(KinectSdkDir)Assemblies\Microsoft.Kinect.dll')">
     <Error Text="Kinect SDK v1.8 not found in $(KinectSdkDir). Install it first: see docs\SETUP.md." />
+  </Target>
+
+  <Target Name="CheckKinectToolkit" BeforeTargets="ResolveAssemblyReferences"
+          Condition="!Exists('$(KinectToolkitDir)Assemblies\Microsoft.Kinect.Toolkit.Fusion.dll')">
+    <Error Text="Kinect Developer Toolkit v1.8 not found in $(KinectToolkitDir). Install it first: see docs\SETUP.md." />
   </Target>
 
 </Project>

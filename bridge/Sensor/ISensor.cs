@@ -67,6 +67,12 @@ namespace KinectBridge.Sensor
         /// </summary>
         event Action<SkeletonData> SkeletonFrameReady;
 
+        /// <summary>
+        /// For each depth pixel, which colour pixel sees the same spot (an index into the 640x480 colour picture),
+        /// or -1 if none does. Allows for the gap between the two cameras. False if there is no working sensor.
+        /// </summary>
+        bool MapDepthToColour(DepthFrame depth, int[] colourIndex);
+
         /// <summary>Switches standing or seated tracking and the smoothing preset. Kept for the next time the sensor opens, too.</summary>
         void ApplySkeletonSettings(SkeletonSettings settings);
     }

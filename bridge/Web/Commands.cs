@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using KinectBridge.Fusion;
 using KinectBridge.Mocap;
 using KinectBridge.Sensor;
 using KinectBridge.Skeleton;
@@ -15,7 +16,7 @@ namespace KinectBridge.Web
     static class Commands
     {
         public static void Register(MessageHub hub, ISensor sensor, TiltController tilt, StreamPump pump,
-            SkeletonSettings skeletonSettings, Action pushStatus, Recorder recorder, TakeLibrary takes)
+            SkeletonSettings skeletonSettings, Action pushStatus, Recorder recorder, TakeLibrary takes, Scanner scanner)
         {
             hub.On("sensor.reconnect", (client, msg) => sensor.Reconnect());
 
@@ -105,7 +106,8 @@ namespace KinectBridge.Web
                 var kind = msg.TryGetValue("kind", out var k) ? k as string : null;
                 var id = msg.TryGetValue("id", out var i) ? i as string : null;
                 var format = msg.TryGetValue("format", out var f) ? f as string : null;
-                if (kind != "take") { MessageHub.SendError(client, "badExport", "Only motion capture takes can be exported so far."); return; }
+                if (kind == "scan") { ExportScan(client, scanner, format); return; }
+                if (kind != "take") { MessageHub.SendError(client, "badExport", "Export needs a kind: take or scan."); return; }
                 if (!takes.Exists(id)) { MessageHub.SendError(client, "noSuchTake", "That take no longer exists."); return; }
 
                 if (format == "json")
@@ -130,6 +132,24 @@ namespace KinectBridge.Web
                 }
             });
 
+            hub.On("fusion.start", (client, msg) =>
+            {
+                var refusal = scanner.Start();
+                if (refusal != null) MessageHub.SendError(client, "fusionRefused", refusal);
+            });
+            hub.On("fusion.pause", (client, msg) => scanner.Pause());
+            hub.On("fusion.reset", (client, msg) => scanner.Reset());
+            hub.On("fusion.preset", (client, msg) =>
+            {
+                var refusal = scanner.SetPreset(msg.TryGetValue("preset", out var p) ? p as string : null);
+                if (refusal != null) MessageHub.SendError(client, "badSetting", refusal);
+            });
+            hub.On("fusion.colour", (client, msg) =>
+            {
+                if (msg.TryGetValue("on", out var on) && on is bool b) scanner.SetColour(b);
+                else MessageHub.SendError(client, "badSetting", "fusion.colour needs on: true or false.");
+            });
+
             hub.On("snapshot", (client, msg) =>
             {
                 try
@@ -152,6 +172,28 @@ namespace KinectBridge.Web
                     MessageHub.SendError(client, "snapshotFailed", "The snapshot could not be saved. Check there is space on the disk and the captures folder is not read-only.");
                 }
             });
+        }
+
+        /// <summary>Makes the mesh file. Big scans take several seconds, during which scanning waits.</summary>
+        static void ExportScan(ClientConnection client, Scanner scanner, string format)
+        {
+            if (format != "stl" && format != "obj" && format != "ply" && format != "preview")
+            {
+                MessageHub.SendError(client, "badExport", "Scans export as stl, obj or ply.");
+                return;
+            }
+            try
+            {
+                var (name, url, result) = scanner.Export(format);
+                var note = $"{result.Triangles:N0} triangles, {result.SizeX:0.00} m wide, {result.SizeY:0.00} m deep, {result.SizeZ:0.00} m tall.";
+                MessageHub.Send(client, new { type = "export", v = MessageHub.ProtocolVersion, kind = "scan", format, name, url, note });
+            }
+            catch (InvalidOperationException ex) { MessageHub.SendError(client, "exportFailed", ex.Message); }
+            catch (Exception ex)
+            {
+                Log.Error($"Scan export ({format}) failed: {ex.Message}");
+                MessageHub.SendError(client, "exportFailed", "The scan could not be saved. Check there is space on the disk; the bridge log has details.");
+            }
         }
 
         static string TakeUrl(string fileName) => "/captures/mocap/" + Uri.EscapeDataString(fileName);

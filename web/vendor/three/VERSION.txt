@@ -1,1 +1,2 @@
 three.js 0.186.1 from npm (cdn.jsdelivr.net/npm/three@0.186.1). Saved locally so the app never needs the internet.
+PLYLoader.js from the same version (examples/jsm/loaders), for showing finished 3D scans.

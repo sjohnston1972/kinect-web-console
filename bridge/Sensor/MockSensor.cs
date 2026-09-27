@@ -35,6 +35,14 @@ namespace KinectBridge.Sensor
         public event Action<DepthFrame> DepthFrameReady;
         public event Action<SkeletonData> SkeletonFrameReady;
 
+        /// <summary>The mock's colour and depth pictures are drawn from the same viewpoint, so pixel i matches pixel i.</summary>
+        public bool MapDepthToColour(DepthFrame depth, int[] colourIndex)
+        {
+            if (state != SensorState.Ready) return false;
+            for (int i = 0; i < colourIndex.Length; i++) colourIndex[i] = i;
+            return true;
+        }
+
         public void ApplySkeletonSettings(SkeletonSettings settings)
         {
             skeletonSettings = settings.Copy();

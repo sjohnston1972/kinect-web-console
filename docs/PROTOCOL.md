@@ -28,6 +28,7 @@ Every JSON message is a text WebSocket message with a `type` and a protocol vers
 | `snapshot` | Reply to a `snapshot` request | `files`: list of `{ name, url }` for the colour and depth PNG files |
 | `skeletons` | About 30 times a second while subscribed to `skeletons`. Newest-only | See below |
 | `mocap` | On connect, 4 times a second during a countdown or recording, and when anything changes | See below |
+| `fusion` | On connect and 4 times a second | See below |
 | `export` | Reply to an `export` request | `kind`, `id`, `format`, `name` (file name), `url` (download link), and for BVH a `note` with the frame count and accuracy |
 
 `status` contents:
@@ -62,7 +63,7 @@ Every JSON message is a text WebSocket message with a `type` and a protocol vers
 
 Status is sent "newest only": if a browser falls behind, an unsent older status is replaced by the newer one.
 
-`error` codes: `badMessage` (not valid JSON, no `type`, or the handler failed), `badVersion`, `unknownType`, `badTilt` (no angle), `tiltRefused` (motor limits, or the sensor is not ready; the message says when to try again), `snapshotFailed`, `badSetting` (a skeleton setting that is not one of the allowed values). `mocapRefused` (already recording, or the Kinect is not ready), `noSuchTake`, `badName`, `badExport`, `exportFailed`.
+`error` codes: `badMessage` (not valid JSON, no `type`, or the handler failed), `badVersion`, `unknownType`, `badTilt` (no angle), `tiltRefused` (motor limits, or the sensor is not ready; the message says when to try again), `snapshotFailed`, `badSetting` (a setting that is not one of the allowed values), `mocapRefused` (already recording, or the Kinect is not ready), `noSuchTake`, `badName`, `badExport`, `exportFailed`, `fusionRefused` (the Kinect is not ready, or Kinect Fusion could not start).
 
 ### Browser to bridge
 
@@ -77,7 +78,12 @@ Status is sent "newest only": if a browser falls behind, an unsent older status 
 | `mocap.stop` | none | Stops and saves the take, or cancels a countdown |
 | `mocap.rename` | `id`, `name` | Renames the take; the file is renamed to match (unsafe characters become dashes). Any BVH made under the old name is removed |
 | `mocap.delete` | `id` | Moves the take and its BVH to the Recycle Bin |
-| `export` | `kind`: `take`, `id`, `format`: `bvh` or `json` | Replies with a download link. BVH files are made on request and saved next to the take |
+| `export` | `kind`: `take`, `id`, `format`: `bvh` or `json`; or `kind`: `scan`, `format`: `stl`, `obj`, `ply` or `preview` | Replies with a download link. BVH files are made on request and saved next to the take. Scan files are made from the model as it is now (scanning waits meanwhile); `preview` makes a lighter PLY in `captures/scans/preview` for the page's 3D view |
+| `fusion.start` | none | Starts scanning, or carries on after a pause. Builds the Fusion volume for the current preset on first use |
+| `fusion.pause` | none | Stops merging frames; the model is kept |
+| `fusion.reset` | none | Clears the model and starts again from where the Kinect is now. Keeps scanning if it was |
+| `fusion.preset` | `preset`: `object`, `person` or `room` | Switches preset. Clears the model, because the volume is rebuilt at the new size |
+| `fusion.colour` | `on`: true or false | Colour capture: colours go into the model, and into PLY and OBJ exports |
 | `snapshot` | none | Saves the newest colour and depth pictures as PNG files in `captures/snapshots`, named `snapshot-YYYYMMDD-HHMMSS-colour.png` and `-depth.png`. Replies with a `snapshot` message |
 
 The page sends `subscribe` on every connect, every tab switch, and every change of view on the Live tab.
@@ -104,6 +110,7 @@ Pictures and depth travel as binary WebSocket messages. Every one starts with a 
 | 1 | `colour` | JPEG, 640x480 | Subscribed |
 | 2 | `depth` | JPEG, 640x480, coloured by distance: near is red and orange, far is green and blue, over 0.8 m to 4 m. Dimmed outside that range, near-black where there is no reading | Subscribed |
 | 3 | `depthRaw` | 320x240 distances, 16-bit little-endian, in millimetres, row by row from the top left. 0 means no reading. Every second pixel of the full depth picture in each direction | Subscribed |
+| 4 | `fusion` | JPEG, 640x480: the 3D scan so far, shaded (or in colour once colour has been captured), seen from where the Kinect is now. About 15 a second while scanning | Subscribed, while scanning, and once on pause |
 
 JPEG quality comes from `streamQuality.jpegQuality` in `settings.json` (80 by default).
 
@@ -194,3 +201,54 @@ Each take is `captures/mocap/<id>.json`, and the page loads it from `/captures/m
 - Rotation channels are `Zrotation Xrotation Yrotation`. Bone lengths are each bone's middle length over the take.
 - Frames are evened out to exactly 30 a second; a joint missing from a frame keeps its last rotation.
 - The export rebuilds every joint from the BVH and reports the average distance from where the Kinect saw it (the `note` in the reply). About 3 cm is typical for a real take: the Kinect's own bone lengths wobble slightly from frame to frame, and the BVH uses fixed lengths.
+
+## The fusion message
+
+```json
+{
+  "type": "fusion", "v": 1,
+  "state": "scanning",
+  "preset": "room",
+  "presets": [ { "name": "object", "label": "Object", "size": [0.75, 0.75, 0.75], "detailMm": 2.0, "startDistance": 0.8 } ],
+  "tracking": "ok",
+  "framesIntegrated": 145,
+  "fps": 30.3,
+  "colour": false,
+  "processor": "Graphics card: AMD Radeon RX 7700 XT",
+  "processorWarning": null,
+  "error": null,
+  "scanId": "scan-20260927-104552-room",
+  "files": [ { "name": "scan-20260927-104552-room.stl", "sizeMb": 6.2, "url": "/captures/scans/scan-20260927-104552-room.stl" } ]
+}
+```
+
+- `state` is `idle`, `scanning` or `paused`. `tracking` is `ok`, `lost` (8 depth frames in a row could not be lined up with the model) or `idle`.
+- `framesIntegrated` is how many depth frames have been merged into this scan. `fps` is frames processed per second while scanning.
+- `processor` says where Kinect Fusion runs. `processorWarning` is set when it had to fall back to the processor (slow, and at most 256 voxels per side). `error` explains an automatic pause, for example when the Kinect was unplugged.
+- `presets` lists all three with their size in metres (width, height, depth), detail in millimetres per voxel, and the distance from the Kinect to the front of the scanned box.
+- `files` lists the 12 newest exports in `captures/scans`.
+
+## Scan files
+
+`captures/scans/scan-YYYYMMDD-HHMMSS-<preset>.<stl|obj|ply>`; one scan can be exported in all three formats under the same name.
+
+- Placed to open the right way up: unmirrored (the Kinect's depth picture is a mirror image), levelled using the accelerometer reading from when the scan started, standing on the ground (lowest point at 0), centred, and facing the front view.
+- **STL:** binary, millimetres, Z up. For Windows 3D Viewer and 3D printing. No colour.
+- **OBJ:** text, metres, Y up, shared vertices. With colour capture, each vertex line carries red, green and blue (0 to 1), which Blender reads.
+- **PLY:** binary little-endian, metres, Z up, shared vertices, with red, green and blue bytes per vertex when colour was captured.
+- The export detail is set by the preset's `meshVoxelStep` in `settings.json` (1 is full detail; 2 keeps a quarter of the triangles).
+
+## Scan presets
+
+In `settings.json` under `fusion.presets`, one entry each for `object`, `person` and `room`:
+
+| Setting | Meaning |
+| --- | --- |
+| `voxelsPerMeter` | Detail: 512 is 2 mm cubes, 256 is 4 mm, 128 is 8 mm |
+| `voxels` | Size of the box in voxels, width, height, depth (each rounded to a multiple of 32) |
+| `startDistance` | Metres from the Kinect to the front of the box |
+| `minDepth`, `maxDepth` | Depth readings outside this range (metres) are ignored |
+| `meshVoxelStep` | Export detail, as above |
+| `label` | The name on the page |
+
+Changes take effect when the bridge restarts.

@@ -14,6 +14,9 @@ namespace KinectBridge
         public string CapturesFolder = "captures";
         public int JpegQuality = 80;
 
+        /// <summary>The "fusion" section, read by FusionPresets. Null if settings.json has none.</summary>
+        public Dictionary<string, object> Fusion;
+
         /// <summary>The project folder: the one holding settings.json and web/.</summary>
         public string RootFolder;
 
@@ -38,6 +41,8 @@ namespace KinectBridge
                 settings.CapturesFolder = ReadString(data, "capturesFolder", settings.CapturesFolder);
                 if (data.TryGetValue("streamQuality", out var q) && q is Dictionary<string, object> quality)
                     settings.JpegQuality = ReadInt(quality, "jpegQuality", settings.JpegQuality);
+                if (data.TryGetValue("fusion", out var f) && f is Dictionary<string, object> fusion)
+                    settings.Fusion = fusion;
             }
             catch (Exception ex)
             {

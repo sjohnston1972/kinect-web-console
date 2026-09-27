@@ -264,6 +264,32 @@ namespace KinectBridge.Sensor
 
         static Quat ToQuat(Vector4 q) => new Quat(q.X, q.Y, q.Z, q.W);
 
+        // ----- Colour to depth mapping, for colour 3D scans -----
+
+        DepthImagePixel[] mapPixels;
+        ColorImagePoint[] mapPoints;
+
+        public bool MapDepthToColour(DepthFrame depth, int[] colourIndex)
+        {
+            KinectSensor sensor;
+            lock (gate) sensor = active;
+            if (sensor == null || !sensor.IsRunning) return false;
+
+            var count = DepthFrame.Width * DepthFrame.Height;
+            if (mapPixels == null) { mapPixels = new DepthImagePixel[count]; mapPoints = new ColorImagePoint[count]; }
+            for (int i = 0; i < count; i++)
+                mapPixels[i] = new DepthImagePixel { Depth = depth.Depth[i], PlayerIndex = depth.Player[i] };
+
+            sensor.CoordinateMapper.MapDepthFrameToColorFrame(DepthFormat, mapPixels, ColourFormat, mapPoints);
+            for (int i = 0; i < count; i++)
+            {
+                var p = mapPoints[i];
+                colourIndex[i] = p.X >= 0 && p.X < ColourFrame.Width && p.Y >= 0 && p.Y < ColourFrame.Height
+                    ? p.Y * ColourFrame.Width + p.X : -1;
+            }
+            return true;
+        }
+
         void OnSkeletonFrame(object sender, SkeletonFrameReadyEventArgs e)
         {
             var sensor = (KinectSensor)sender;

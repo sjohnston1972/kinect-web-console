@@ -1,6 +1,6 @@
 # Kinect Web Console
 
-Use an Xbox 360 Kinect from a web page on this PC. The page shows live colour and depth pictures, a 3D point cloud, and the Kinect's status, and lets you tilt the Kinect and save snapshots. It also tracks skeletons and records motion capture, which exports to Blender. 3D scanning follows in a later phase.
+Use an Xbox 360 Kinect from a web page on this PC. The page shows live colour and depth pictures, a 3D point cloud, and the Kinect's status, and lets you tilt the Kinect and save snapshots. It also tracks skeletons, records motion capture for Blender, and builds 3D scans with Kinect Fusion.
 
 ## Start it
 
@@ -42,6 +42,19 @@ Close the black window, or click in it and press Ctrl+C.
 - **Rename** and **Delete** are next to each take. Deleted takes go to the Recycle Bin.
 - **Export BVH** makes a file for Blender: File, Import, Motion Capture (.bvh), default settings. The skeleton stands in the middle of Blender's floor, facing the front view. To find it: click it in the Outliner (top right), then View, Frame Selected. Orbit by dragging with the middle mouse button, pan with Shift and middle-drag, zoom with the scroll wheel, and play with the spacebar. It holds one person and needs a take recorded in Standing mode. Starting a take with a T-pose (arms straight out) makes it easy to line up in Blender.
 - **Download JSON** gives the take exactly as recorded, every joint of every frame.
+
+## The 3D scan tab
+
+1. Pick a **preset**: **Object** (a box 0.75 m across, 2 mm detail, starting 0.8 m away), **Person** (1.5 m wide and 2 m tall, 4 mm detail, starting 1 m away) or **Room** (4 m by 3 m by 4 m, 8 mm detail).
+2. Tick **Capture colour** if you want colours in the PLY and OBJ files.
+3. Press **Start**. The picture shows the model building up, shaded, from the Kinect's point of view.
+4. Move slowly. Either keep the Kinect still and turn the thing you are scanning (a swivel chair works well for a person), or carry the Kinect slowly around it.
+5. Press **Pause** when it looks complete, then **STL**, **OBJ** or **PLY** to save it in `capturesscans`, or **View in 3D** to look at it on the page.
+
+- If the picture shows **Tracking lost**, the Kinect moved too fast. Move it back to where the picture last looked right and hold still, or press **Reset** to start again.
+- **STL** opens in Windows 3D Viewer (double-click the file). **OBJ** and **PLY** open in Blender: File, Import, Wavefront (.obj) or Stanford PLY (.ply).
+- Changing preset or pressing Reset clears the scan, so export first if you want to keep it.
+- The presets' sizes and detail are in `settings.json` under `fusion`.
 
 ## The status light
 

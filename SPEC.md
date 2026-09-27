@@ -197,6 +197,7 @@ One WebSocket at ws://localhost:8766/ws carries everything live: images as binar
 | mocap.start, mocap.stop | Start or stop a take |
 | mocap.rename, mocap.delete | Rename a take, or move it to the Recycle Bin |
 | fusion.start, fusion.pause, fusion.reset, fusion.preset | Scan controls |
+| fusion.colour | Colour capture on or off for 3D scans |
 | export | Scan or take id and format. The reply holds a download link |
 
 **Plain HTTP.** `GET /` serves the web folder. `GET /captures/...` downloads saved files and must refuse any path outside the captures folder.

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
+using KinectBridge.Fusion;
 using KinectBridge.Mocap;
 using KinectBridge.Sensor;
 using KinectBridge.Skeleton;
@@ -56,7 +57,9 @@ namespace KinectBridge
             var takes = new TakeLibrary(Path.Combine(settings.CapturesPath, "mocap"));
             var recorder = new Recorder(sensor, hub, takes, skeletonSettings);
             hub.Greetings.Add(() => recorder.Message());
-            Commands.Register(hub, sensor, tilt, pump, skeletonSettings, status.Push, recorder, takes);
+            var scanner = new Scanner(sensor, pump, hub, settings);
+            hub.Greetings.Add(() => scanner.Message());
+            Commands.Register(hub, sensor, tilt, pump, skeletonSettings, status.Push, recorder, takes, scanner);
             var server = new WebServer(settings, hub);
 
             try
@@ -101,6 +104,7 @@ namespace KinectBridge
             pump.Dispose();
             skeletons.Dispose();
             recorder.Dispose();
+            scanner.Dispose();
             sensor.Dispose();
             server.Dispose();
             return 0;

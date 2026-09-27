@@ -351,3 +351,26 @@ dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .take-name { font-weight: 600; overflow-wrap: anywhere; margin: 0; }
 .take-meta { font-size: 12px; color: var(--muted); }
 .take-actions { display: flex; gap: 4px; flex: none; }
+
+/* 3D scan tab */
+.scan-view { display: flex; justify-content: center; align-items: flex-start; }
+.scan-view[data-view="model"] .stream { display: none; }
+.scan-view[data-view="model"] { padding: 12px; }
+.scan-view[data-view="model"] .cloud { display: block; }
+.lost-banner {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgba(160, 30, 20, .92);
+  color: #fff;
+}
+.lost-banner[hidden] { display: none; }
+.lost-banner strong { font-size: 18px; }
+.warn-text { color: var(--red); }

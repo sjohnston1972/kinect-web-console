@@ -172,8 +172,60 @@
   </section>
 
   <section class="tab-panel" data-panel="scan" hidden>
-    <div class="main-view placeholder"><p>3D scanning arrives in Phase 5.</p></div>
-    <aside class="control-panel"><h2>3D scan</h2><p class="muted">Controls arrive in Phase 5.</p></aside>
+    <div class="main-view scan-view" id="scan-view" data-view="live">
+      <figure class="stream single">
+        <div class="frame stale" id="scan-canvas-frame">
+          <canvas id="scan-canvas" width="640" height="480"></canvas>
+          <div class="no-signal">The model appears here once scanning starts</div>
+          <div class="lost-banner" id="scan-lost" hidden>
+            <strong>Tracking lost</strong>
+            <span>The Kinect moved too fast, or it cannot see enough of the model. Move it back to where the picture last looked right, and hold still. Or start again:</span>
+            <button id="scan-lost-reset" class="button small">Reset scan</button>
+          </div>
+        </div>
+      </figure>
+      <div class="cloud" id="scan-3d"></div>
+    </div>
+
+    <aside class="control-panel">
+      <h2>View</h2>
+      <div class="segmented" role="radiogroup" aria-label="What to show">
+        <label><input type="radio" name="scan-view" value="live" checked><span>Live</span></label>
+        <label title="The finished model in 3D. Drag to orbit."><input type="radio" name="scan-view" value="model"><span>3D model</span></label>
+      </div>
+
+      <h2>Preset</h2>
+      <div class="segmented three" role="radiogroup" aria-label="Scan preset">
+        <label title="Small things in fine detail"><input type="radio" name="scan-preset" value="object" checked><span>Object</span></label>
+        <label title="A standing person"><input type="radio" name="scan-preset" value="person"><span>Person</span></label>
+        <label title="Part of a room, less detail"><input type="radio" name="scan-preset" value="room"><span>Room</span></label>
+      </div>
+      <p class="muted small" id="scan-preset-text"></p>
+      <label class="check" title="Colours go into the PLY and OBJ files. Takes effect from the next frame."><input type="checkbox" id="scan-colour"> Capture colour</label>
+
+      <h2>Scan</h2>
+      <div class="button-row">
+        <button id="scan-start" class="button" disabled>Start</button>
+        <button id="scan-reset" class="button" disabled>Reset</button>
+      </div>
+      <p class="muted small" id="scan-state"></p>
+      <p class="muted small" id="scan-hint">Tip: keep the Kinect still and slowly turn what you are scanning, or walk the Kinect slowly around it. Slow and steady keeps tracking locked on.</p>
+      <p class="small warn-text" id="scan-warning" hidden></p>
+
+      <h2>Export</h2>
+      <div class="button-row">
+        <button id="scan-stl" class="button small" disabled title="">STL</button>
+        <button id="scan-obj" class="button small" disabled>OBJ</button>
+        <button id="scan-ply" class="button small" disabled>PLY</button>
+        <button id="scan-model" class="button small" disabled>View in 3D</button>
+      </div>
+      <p class="muted small" id="scan-note"></p>
+      <p class="muted small">STL opens in Windows 3D Viewer (millimetres). OBJ and PLY open in Blender (metres). Saved in captures\scans.</p>
+      <div class="files" id="scan-files"></div>
+
+      <h2>Processing on</h2>
+      <p class="small" id="scan-processor"></p>
+    </aside>
   </section>
 
   <section class="tab-panel" data-panel="status" hidden>
@@ -239,8 +291,10 @@
 <script src="js/live.js"></script>
 <script src="js/skeleton.js"></script>
 <script src="js/mocap.js"></script>
+<script src="js/scan.js"></script>
 <script>Tabs.start();</script>
 <script type="module" src="js/pointcloud.js"></script>
 <script type="module" src="js/skeleton3d.js"></script>
+<script type="module" src="js/scanmesh.js"></script>
 </body>
 </html>

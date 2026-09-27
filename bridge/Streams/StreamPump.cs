@@ -68,6 +68,7 @@ namespace KinectBridge.Streams
             old?.Release();
             if (hub.AnySubscribed("depth")) depthWorker.Signal();
             if (hub.AnySubscribed("depthRaw")) rawWorker.Signal();
+            DepthArrived?.Invoke();
         }
 
         void SendColour()
@@ -97,6 +98,15 @@ namespace KinectBridge.Streams
             try { hub.BroadcastBinary("depthRaw", RawDepthPacker.Pack(frame)); }
             finally { frame.Release(); }
         }
+
+        /// <summary>Raised on the sensor thread after a new depth frame is stored. The 3D scanner listens for this.</summary>
+        public event Action DepthArrived;
+
+        /// <summary>The newest colour frame, counted so it stays valid: call Release when done. Null if none.</summary>
+        public ColourFrame BorrowColour() => Borrow(ref lastColour);
+
+        /// <summary>The newest depth frame, counted so it stays valid: call Release when done. Null if none.</summary>
+        public DepthFrame BorrowDepth() => Borrow(ref lastDepth);
 
         /// <summary>Takes a counted reference to the newest frame, so it cannot be recycled while in use.</summary>
         T Borrow<T>(ref T slot) where T : PooledFrame
