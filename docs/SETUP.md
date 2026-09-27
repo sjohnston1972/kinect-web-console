@@ -22,24 +22,26 @@ Check: open PowerShell and run `dotnet --version` and `git --version`. Each prin
 
 Kinect Fusion needs DirectX 11. The RX 7700 XT is the one to use. Checked with `dxdiag /t`.
 
-## 3. Kinect software (Steven installs)
+## 3. Kinect software
 
-Both come from the Microsoft Download Center and use a normal graphical installer.
+Both are installed on this PC. They come from the Microsoft Download Center, are signed by Microsoft, and were installed silently. Windows asks for administrator approval once for each.
 
-1. **Kinect for Windows SDK v1.8** (file `KinectSDK-v1.8-Setup.exe`). Installs the drivers, runtime and the Microsoft.Kinect library.
-2. **Kinect for Windows Developer Toolkit v1.8** (file `KinectDeveloperToolkit-v1.8.0-Setup.exe`). Installs the sample apps and the Kinect Fusion libraries.
+1. **Kinect for Windows SDK v1.8** (file `KinectSDK-v1.8-Setup.exe`, 222 MB). Installs the drivers, runtime and the Microsoft.Kinect library.
+2. **Kinect for Windows Developer Toolkit v1.8** (file `KinectDeveloperToolkit-v1.8.0-Setup.exe`, 384 MB). Installs the sample apps and the Kinect Fusion libraries.
 
-Install the SDK first, with the Kinect unplugged, then the Toolkit. Plug the Kinect in afterwards.
+To install again by hand, run each file with `/quiet /norestart`, SDK first.
+
+The installers also set two system settings that point at the install folders: `KINECTSDK10_DIR` and `KINECT_TOOLKIT_DIR`.
 
 ## 4. Kinect library files
 
-The bridge program links to these files. They are found on disk, not assumed.
+The bridge program links to these files. They were found on disk, not assumed.
 
-| File | Purpose | Path on this PC |
-| --- | --- | --- |
-| Microsoft.Kinect.dll | Talks to the sensor: colour, depth, skeleton, tilt | Not found yet: SDK not installed |
-| Microsoft.Kinect.Toolkit.Fusion.dll | The C# side of Kinect Fusion | Not found yet: Toolkit not installed |
-| KinectFusion180_64.dll | The native 64-bit Fusion engine, copied next to the program | Not found yet: Toolkit not installed |
+| File | Purpose | Version | Path on this PC |
+| --- | --- | --- | --- |
+| Microsoft.Kinect.dll | Talks to the sensor: colour, depth, skeleton, tilt | 1.8.0.595 | `C:\Program Files\Microsoft SDKs\Kinect\v1.8\Assemblies\Microsoft.Kinect.dll` |
+| Microsoft.Kinect.Toolkit.Fusion.dll | The C# side of Kinect Fusion | 1.8.0.572 | `C:\Program Files\Microsoft SDKs\Kinect\Developer Toolkit v1.8.0\Assemblies\Microsoft.Kinect.Toolkit.Fusion.dll` |
+| KinectFusion180_64.dll | The native 64-bit Fusion engine, copied next to the program | 1.8.0.572 | `C:\Program Files\Microsoft SDKs\Kinect\Developer Toolkit v1.8.0\Redist\amd64\KinectFusion180_64.dll` |
 
 ## 5. Hardware check
 
@@ -49,7 +51,7 @@ The bridge program links to these files. They are found on disk, not assumed.
 4. Run Kinect Fusion Explorer. A 3D surface builds as you move the Kinect.
 5. Close both samples. Only one program can use the Kinect at a time.
 
-**What Windows sees right now:** a single device called "Xbox NUI Motor" with an error, and no camera or audio devices. That is expected while the SDK is missing, because there is no driver yet. It can also mean the power adapter is not plugged into the mains: without mains power the Kinect only shows its motor to the PC, and the camera never appears. After installing the SDK, Device Manager should show a "Kinect for Windows" group with Camera, Audio Array and Device entries.
+**Troubleshooting:** if Device Manager shows only "Xbox NUI Motor" and no camera, the Kinect is getting USB but not mains power. Check the adapter's wall plug. The Kinect only shows its motor to the PC until mains power reaches it.
 
 ## 6. Web address reservation
 

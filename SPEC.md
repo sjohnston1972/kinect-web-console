@@ -34,10 +34,11 @@ The Kinect needs a power adapter, Microsoft's Kinect for Windows SDK v1.8, and a
 | Kinect for Xbox 360 | Model 1414 or 1473, printed on the underside of the base | Steven |
 | Kinect power and USB adapter | Splits the Kinect's proprietary plug into a USB lead and a mains power supply | Steven |
 | USB port | Plugged directly into the PC, not a hub. If the Kinect drops out on a USB 3 port, try a USB 2 port | Steven |
-| Kinect for Windows SDK v1.8 | Drivers, runtime, and the Microsoft.Kinect library. From the Microsoft Download Center | Steven (graphical installer) |
-| Kinect for Windows Developer Toolkit v1.8 | Sample apps and the Kinect Fusion libraries used for 3D scanning | Steven (graphical installer) |
+| Kinect for Windows SDK v1.8 | Drivers, runtime, and the Microsoft.Kinect library. From the Microsoft Download Center | Claude Code downloads and installs silently. Windows asks Steven to approve the install |
+| Kinect for Windows Developer Toolkit v1.8 | Sample apps and the Kinect Fusion libraries used for 3D scanning | Claude Code downloads and installs silently. Windows asks Steven to approve the install |
 | Graphics card | DirectX 11 capable, needed for Kinect Fusion on the GPU | Claude Code checks |
-| .NET Framework 4.8 | The runtime the app targets. Built into Windows 11 | Already present |
+| .NET Framework 4.8.1 | The runtime the app targets. Built into Windows 11 | Already present |
+| .NET Framework 4.8.1 Developer Pack | The files needed to build for .NET Framework 4.8.1 | Claude Code installs with winget |
 | .NET SDK 8 or later | Builds the project from the command line | Claude Code installs with winget |
 | Git | Version control for the project | Claude Code installs with winget |
 
@@ -65,7 +66,7 @@ The Kinect's data flows down through the bridge, which encodes it and streams it
 
 **Technical decisions**
 
-- **Project:** an SDK-style .csproj targeting net48, platform x64, built with `dotnet build`. Reference Microsoft.Kinect.dll and Microsoft.Kinect.Toolkit.Fusion.dll from the SDK and Toolkit install folders. Locate them on disk; do not assume paths. Copy the x64 native Kinect Fusion DLL into the output folder.
+- **Project:** an SDK-style .csproj targeting net481 (.NET Framework 4.8.1), platform x64, built with `dotnet build`. Reference Microsoft.Kinect.dll and Microsoft.Kinect.Toolkit.Fusion.dll from the SDK and Toolkit install folders. Locate them on disk; do not assume paths. Copy the x64 native Kinect Fusion DLL into the output folder.
 - **Web server:** the built-in HttpListener with WebSocket support, on http://localhost:8765/. If Windows needs a one-time URL reservation, document the command in docs/SETUP.md. The app must not need administrator rights on every run.
 - **Front end:** plain HTML, CSS and JavaScript with no build step. Three.js is saved into web/vendor for the 3D views. No CDN and no internet access at run time.
 - **Settings:** a settings.json file holds the port, captures folder, and stream quality.
@@ -283,7 +284,7 @@ The bridge starts, serves the page, opens the WebSocket, and reports status. Moc
 | --- | --- | --- |
 | SDK 1.8 was built for Windows 7 and 8 | Driver install or detection fails on Windows 11 | Phase 0 hardware check catches it early. Reinstall the SDK, try another port |
 | Some USB 3 controllers handle the Kinect badly | Dropped frames or disconnects | Use a USB 2 port |
-| Microsoft.Kinect is a .NET Framework library | Will not load on modern .NET | Target net48, as specified |
+| Microsoft.Kinect is a .NET Framework library | Will not load on modern .NET | Target net481 (.NET Framework 4.8.1), as specified |
 | No DirectX 11 graphics card | Fusion runs slowly on the CPU | CPU fallback with a warning and a smaller preset |
 | BVH axis or rotation order differs from Blender's | Imported skeleton twists or faces the wrong way | Test with a T-pose take in Phase 4. Add an axis option if needed |
 | Windows needs a URL reservation for the server | App fails to start | One-time command documented in SETUP.md |
