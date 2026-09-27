@@ -237,8 +237,7 @@ try {
         Send $c ('{"type":"mocap.rename","v":1,"id":"' + $id + '","name":"Self-test take"}')
         $renamed = WaitFor $c '"kind":"renamed"' 5
         Check "Rename works" { $renamed -and $renamed.event.id -eq 'Self-test take' }
-        Send $c '{"type":"mocap.delete","v":1,"id":"Self-test take"}'
-        Check "Delete works" { [bool](WaitFor $c '"kind":"deleted"' 5) }
+        # (the take is kept for the restart checks at the end, then deleted there)
     }
 
     # ----- 3D scanning -----
@@ -359,6 +358,15 @@ try {
         Check "Skeleton mode and smoothing are remembered" { @(($status.skeleton.mode -eq 'seated' -and $status.skeleton.smoothing -eq 'heavy'), "$($status.skeleton.mode), $($status.skeleton.smoothing)") }
         Check "People highlight is remembered" { $status.live.peopleHighlight -eq $true }
         Check "Scan preset and colour are remembered" { @(($fusion.preset -eq 'person' -and $fusion.colour -eq $true), "$($fusion.preset), colour $($fusion.colour)") }
+
+        # Issue #5: after a restart the take list comes from the index, without reading each take in full
+        $found = Get-Content "$work\bridge-output-restart.txt" | Select-String "Found \d+ saved takes" | Select-Object -First 1
+        $fresh = New-Client
+        $mocap = WaitFor $fresh '"type":"mocap".*"takes"' 3
+        Close $fresh
+        Check "The take list is rebuilt from the index at start-up (issue #5)" { @(($found.Line -match '\(0 read in full' -and ($mocap.takes.name -contains 'Self-test take')), ($found.Line -replace '^.*INFO\s+', '')) }
+        Send $c '{"type":"mocap.delete","v":1,"id":"Self-test take"}'
+        Check "Delete works" { [bool](WaitFor $c '"kind":"deleted"' 5) }
         Close $c
     }
 }

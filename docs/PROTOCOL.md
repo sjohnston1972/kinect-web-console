@@ -169,7 +169,7 @@ The depth colours are defined twice and must match: `bridge/Streams/DepthColouri
 
 ## Take files
 
-Each take is `captures/mocap/<id>.json`, and the page loads it from `/captures/mocap/<id>.json` for playback.
+Each take is `captures/mocap/<id>.json`, and the page loads it from `/captures/mocap/<id>.json` for playback. `captures/mocap/.takes-index.json` lists each take's details with its file size and time, so start-up only reads a take in full when it has changed; it is rebuilt automatically if deleted.
 
 ```json
 {
