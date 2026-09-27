@@ -28,7 +28,7 @@ Every JSON message is a text WebSocket message with a `type` and a protocol vers
 | `snapshot` | Reply to a `snapshot` request | `files`: list of `{ name, url }` for the colour and depth PNG files |
 | `skeletons` | About 30 times a second while subscribed to `skeletons`. Newest-only | See below |
 | `mocap` | On connect, 4 times a second during a countdown or recording, and when anything changes | See below |
-| `fusion` | On connect and 4 times a second | See below |
+| `fusion` | On connect; 4 times a second while a page is subscribed to `fusion` or a scan is running; otherwise every 2 seconds without the coverage measurement | See below |
 | `export` | Reply to an `export` request | `kind`, `id`, `format`, `name` (file name), `url` (download link), and for BVH a `note` with the frame count and accuracy |
 
 `status` contents:
@@ -78,13 +78,13 @@ Status is sent "newest only": if a browser falls behind, an unsent older status 
 | `mocap.stop` | none | Stops and saves the take, or cancels a countdown |
 | `mocap.rename` | `id`, `name` | Renames the take; the file is renamed to match (unsafe characters become dashes). Any BVH made under the old name is removed |
 | `mocap.delete` | `id` | Moves the take and its BVH to the Recycle Bin |
-| `export` | `kind`: `take`, `id`, `format`: `bvh` or `json`; or `kind`: `scan`, `format`: `stl`, `obj`, `ply` or `preview` | Replies with a download link. BVH files are made on request and saved next to the take. Scan files are made from the model as it is now (scanning waits meanwhile); `preview` makes a lighter PLY in `captures/scans/preview` for the page's 3D view |
+| `export` | `kind`: `take`, `id`, `format`: `bvh` or `json`; or `kind`: `scan`, `format`: `stl`, `obj`, `ply` or `preview` | Replies with a download link. Exports run in the background, so the page's other messages carry on meanwhile, and only one runs at a time (a second gets `exportFailed`). BVH files are made on request and saved next to the take. Scan files are made from the model as it is now (scanning pauses only while the mesh is read out); `preview` makes a lighter PLY in `captures/scans/preview` for the page's 3D view |
 | `fusion.start` | none | Starts scanning, or carries on after a pause. Builds the Fusion volume for the current preset on first use |
 | `fusion.pause` | none | Stops merging frames; the model is kept |
 | `fusion.reset` | none | Clears the model and starts again from where the Kinect is now. Keeps scanning if it was |
 | `fusion.preset` | `preset`: `object`, `person` or `room` | Switches preset. Clears the model, because the volume is rebuilt at the new size |
 | `fusion.colour` | `on`: true or false | Colour capture: colours go into the model, and into PLY and OBJ exports |
-| `snapshot` | none | Saves the newest colour and depth pictures as PNG files in `captures/snapshots`, named `snapshot-YYYYMMDD-HHMMSS-colour.png` and `-depth.png`. Replies with a `snapshot` message |
+| `snapshot` | none | Saves the newest colour and depth pictures as PNG files in `captures/snapshots`, named `snapshot-YYYYMMDD-HHMMSS-mmm-colour.png` and `-depth.png` (to the millisecond, so none overwrite). Replies with a `snapshot` message |
 
 The page sends `subscribe` on every connect, every tab switch, and every change of view on the Live tab.
 

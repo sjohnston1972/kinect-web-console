@@ -68,6 +68,9 @@ namespace KinectBridge.Fusion
         string scanId;
         MotionReading gravity;                   // accelerometer at the start of the scan, for levelling exports
         string placement = "";                   // where the box sits, in words, for the page
+        int exporting;                           // 1 while an export is being made (one at a time)
+        List<object> cachedFiles;                // the recent exports list; cleared when a new file is saved
+        int statusTicks;
         string lastError;
         readonly Stopwatch previewClock = Stopwatch.StartNew();
         int processedCount;
@@ -87,7 +90,7 @@ namespace KinectBridge.Fusion
             worker = new StreamWorker("3D scan", Process);
             pump.DepthArrived += () => { if (state == State.Scanning) worker.Signal(); };
             sensor.StateChanged += OnSensorState;
-            statusTimer = new Timer(_ => Broadcast(), null, StatusEveryMs, StatusEveryMs);
+            statusTimer = new Timer(_ => StatusTick(), null, StatusEveryMs, StatusEveryMs);
         }
 
         // ----- Controls (from the page) -----
@@ -409,24 +412,45 @@ namespace KinectBridge.Fusion
         /// </summary>
         public (string name, string url, MeshWriter.Result result) Export(string format)
         {
-            lock (gate)
+            if (Interlocked.CompareExchange(ref exporting, 1, 0) != 0)
+                throw new InvalidOperationException("An export is already being made. Wait for it to finish, then try again.");
+            try
             {
-                if (volume == null || integrated == 0)
-                    throw new InvalidOperationException("There is no scan to export yet. Press Start and move the Kinect slowly around what you are scanning.");
+                ColorMesh mesh;
+                string fileName, relative, path;
+                bool preview, withColour;
+                MotionReading level;
 
-                var preview = format == "preview";
-                var step = preview ? Math.Max(2, volumePreset.MeshVoxelStep) : volumePreset.MeshVoxelStep;
-                var fileName = scanId + "." + (preview ? "ply" : format);
-                var relative = preview ? "preview/" + fileName : fileName;
-                var path = Path.Combine(scansFolder, relative.Replace('/', Path.DirectorySeparatorChar));
-
-                using (var mesh = volume.CalculateMesh(step))
+                // Only reading the mesh out of the volume needs scanning to wait; writing the file happens after
+                lock (gate)
                 {
-                    var result = MeshWriter.Write(mesh, preview ? "ply" : format, path, colourUsed, gravity);
+                    if (volume == null || integrated == 0)
+                        throw new InvalidOperationException("There is no scan to export yet. Press Start and move the Kinect slowly around what you are scanning.");
+
+                    preview = format == "preview";
+                    var step = preview ? Math.Max(2, volumePreset.MeshVoxelStep) : volumePreset.MeshVoxelStep;
+                    fileName = scanId + "." + (preview ? "ply" : format);
+                    relative = preview ? "preview/" + fileName : fileName;
+                    path = Path.Combine(scansFolder, relative.Replace('/', Path.DirectorySeparatorChar));
+                    withColour = colourUsed;
+                    level = gravity;
+                    mesh = volume.CalculateMesh(step);
+                }
+
+                using (mesh)
+                {
+                    var result = MeshWriter.Write(mesh, preview ? "ply" : format, path, withColour, level);
                     if (!preview)
+                    {
                         Log.Info($"3D scan: saved {fileName}: {result.Triangles:N0} triangles, {result.SizeX:0.00} x {result.SizeY:0.00} x {result.SizeZ:0.00} m");
+                        Volatile.Write(ref cachedFiles, null);   // the list of exports has changed
+                    }
                     return (fileName, "/captures/scans/" + relative.Split('/').Select(Uri.EscapeDataString).Aggregate((a, b) => a + "/" + b), result);
                 }
+            }
+            finally
+            {
+                Volatile.Write(ref exporting, 0);
             }
         }
 
@@ -475,7 +499,18 @@ namespace KinectBridge.Fusion
             return $"Very little is in the scanning range ({range} from the Kinect for the {p.Label} preset). Point the Kinect at what you are scanning, from that distance, or pick a bigger preset.";
         }
 
-        public string Message()
+        /// <summary>
+        /// Status four times a second while a page is on the 3D scan tab (it subscribes to "fusion"); otherwise
+        /// only every 2 seconds and without measuring the depth picture, so an unwatched scanner costs almost nothing.
+        /// </summary>
+        void StatusTick()
+        {
+            var watched = hub.AnySubscribed("fusion");
+            if (watched || state == State.Scanning || ++statusTicks % 8 == 0) Broadcast(watched);
+        }
+
+        /// <summary>The status message. Coverage (how much is in range) is only measured when someone is watching.</summary>
+        public string Message(bool withCoverage = true)
         {
             State s;
             string preset, error, warning, processor, id;
@@ -495,7 +530,7 @@ namespace KinectBridge.Fusion
             }
 
             var current = presets[preset];
-            var (inRange, tooClose) = sensor.State == SensorState.Ready ? Coverage(current) : (0.0, 0.0);
+            var (inRange, tooClose) = withCoverage && sensor.State == SensorState.Ready ? Coverage(current) : (0.0, 0.0);
 
             return Json.Serialize(new Dictionary<string, object>
             {
@@ -521,26 +556,30 @@ namespace KinectBridge.Fusion
                 ["inRange"] = (int)Math.Round(inRange * 100),
                 ["tooClose"] = (int)Math.Round(tooClose * 100),
                 ["placement"] = placement,
-                ["hint"] = sensor.State == SensorState.Ready ? CoverageHint(current, inRange, tooClose) : null,
+                ["hint"] = withCoverage && sensor.State == SensorState.Ready ? CoverageHint(current, inRange, tooClose) : null,
             });
         }
 
-        void Broadcast()
+        void Broadcast(bool withCoverage = true)
         {
-            try { hub.Broadcast(Message(), "fusion"); }
+            try { hub.Broadcast(Message(withCoverage), "fusion"); }
             catch (Exception ex) { Log.Error("3D scan status failed: " + ex.Message); }
         }
 
-        /// <summary>The newest exported files, for the page's list of downloads.</summary>
+        /// <summary>The newest exported files, for the page's list of downloads. Read from disk only after a change.</summary>
         List<object> RecentFiles()
         {
+            var cached = Volatile.Read(ref cachedFiles);
+            if (cached != null) return cached;
             try
             {
-                return new DirectoryInfo(scansFolder).GetFiles()
+                cached = new DirectoryInfo(scansFolder).GetFiles()
                     .Where(f => f.Extension == ".stl" || f.Extension == ".obj" || f.Extension == ".ply")
                     .OrderByDescending(f => f.LastWriteTimeUtc).Take(12)
                     .Select(f => (object)new { name = f.Name, sizeMb = Math.Round(f.Length / 1048576.0, 1), url = "/captures/scans/" + Uri.EscapeDataString(f.Name) })
                     .ToList();
+                Volatile.Write(ref cachedFiles, cached);
+                return cached;
             }
             catch
             {

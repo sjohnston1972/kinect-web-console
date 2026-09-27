@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using KinectBridge.Fusion;
 using KinectBridge.Mocap;
 using KinectBridge.Sensor;
@@ -111,7 +112,8 @@ namespace KinectBridge.Web
                 var kind = msg.TryGetValue("kind", out var k) ? k as string : null;
                 var id = msg.TryGetValue("id", out var i) ? i as string : null;
                 var format = msg.TryGetValue("format", out var f) ? f as string : null;
-                if (kind == "scan") { ExportScan(client, scanner, format); return; }
+                // Exports can take seconds, so they run in the background; this tab's other messages carry on meanwhile
+                if (kind == "scan") { Task.Run(() => ExportScan(client, scanner, format)); return; }
                 if (kind != "take") { MessageHub.SendError(client, "badExport", "Export needs a kind: take or scan."); return; }
                 if (!takes.Exists(id)) { MessageHub.SendError(client, "noSuchTake", "That take no longer exists."); return; }
 
@@ -121,20 +123,7 @@ namespace KinectBridge.Web
                     return;
                 }
                 if (format != "bvh") { MessageHub.SendError(client, "badExport", "Takes export as bvh or json."); return; }
-                try
-                {
-                    var result = BvhExporter.Export(takes.Load(id), takes.BvhPath(id));
-                    var note = $"{result.Frames} frames at 30 per second. Joints land on average {result.AverageErrorCm:0.0} cm from where the Kinect saw them."
-                        + (result.PeopleInTake > 1 ? $" The take has {result.PeopleInTake} people; the BVH holds the one tracked longest." : "");
-                    Log.Info($"Exported {id}.bvh: {note}");
-                    MessageHub.Send(client, new { type = "export", v = MessageHub.ProtocolVersion, kind, id, format, name = id + ".bvh", url = TakeUrl(id + ".bvh"), note });
-                }
-                catch (InvalidOperationException ex) { MessageHub.SendError(client, "exportFailed", ex.Message); }
-                catch (Exception ex)
-                {
-                    Log.Error($"BVH export of {id} failed: {ex.Message}");
-                    MessageHub.SendError(client, "exportFailed", "The BVH file could not be made. The bridge log has details.");
-                }
+                Task.Run(() => ExportTake(client, takes, id));
             });
 
             hub.On("fusion.start", (client, msg) =>
@@ -187,7 +176,26 @@ namespace KinectBridge.Web
             });
         }
 
-        /// <summary>Makes the mesh file. Big scans take several seconds, during which scanning waits.</summary>
+        /// <summary>Makes the BVH file for a take and replies with its download link. Runs in the background.</summary>
+        static void ExportTake(ClientConnection client, TakeLibrary takes, string id)
+        {
+            try
+            {
+                var result = BvhExporter.Export(takes.Load(id), takes.BvhPath(id));
+                var note = $"{result.Frames} frames at 30 per second. Joints land on average {result.AverageErrorCm:0.0} cm from where the Kinect saw them."
+                    + (result.PeopleInTake > 1 ? $" The take has {result.PeopleInTake} people; the BVH holds the one tracked longest." : "");
+                Log.Info($"Exported {id}.bvh: {note}");
+                MessageHub.Send(client, new { type = "export", v = MessageHub.ProtocolVersion, kind = "take", id, format = "bvh", name = id + ".bvh", url = TakeUrl(id + ".bvh"), note });
+            }
+            catch (InvalidOperationException ex) { MessageHub.SendError(client, "exportFailed", ex.Message); }
+            catch (Exception ex)
+            {
+                Log.Error($"BVH export of {id} failed: {ex.Message}");
+                MessageHub.SendError(client, "exportFailed", "The BVH file could not be made. The bridge log has details.");
+            }
+        }
+
+        /// <summary>Makes the mesh file and replies with its download link. Runs in the background; scanning only waits while the mesh is read out.</summary>
         static void ExportScan(ClientConnection client, Scanner scanner, string format)
         {
             if (format != "stl" && format != "obj" && format != "ply" && format != "preview")

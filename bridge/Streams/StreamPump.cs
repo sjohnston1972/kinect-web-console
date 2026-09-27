@@ -146,7 +146,8 @@ namespace KinectBridge.Streams
 
                 var folder = Path.Combine(settings.CapturesPath, "snapshots");
                 Directory.CreateDirectory(folder);
-                var stem = "snapshot-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                // Down to the millisecond, so two snapshots in the same second never overwrite each other
+                var stem = "snapshot-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff");
 
                 var colourName = stem + "-colour.png";
                 ImageCopy.SavePng(colour.Pixels, ColourFrame.Width, ColourFrame.Height, Path.Combine(folder, colourName));

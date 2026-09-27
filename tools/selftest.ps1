@@ -203,6 +203,13 @@ try {
         $pngs = $snap.files | ForEach-Object { $b = DownloadBytes ("$origin" + $_.url); $b[1] -eq 0x50 -and $b[2] -eq 0x4E -and $b[3] -eq 0x47 }
         @((@($pngs | Where-Object { $_ }).Count -eq 2), ($snap.files.name -join ', '))
     }
+    Send $c '{"type":"snapshot","v":1}'
+    Send $c '{"type":"snapshot","v":1}'
+    $first = WaitFor $c '"type":"snapshot"' 5; $second = WaitFor $c '"type":"snapshot"' 5
+    Check "Two snapshots in the same second keep all four files (issue #2)" {
+        $names = @($first.files.name) + @($second.files.name) | Sort-Object -Unique
+        @(($names.Count -eq 4), ($names -join ', '))
+    }
 
     # ----- Motion capture -----
     Write-Host "Motion capture" -ForegroundColor Cyan
@@ -245,6 +252,29 @@ try {
     Check "Kinect Fusion scans and keeps tracking" { @(($fusion -and $fusion.state -eq 'scanning' -and $fusion.tracking -eq 'ok' -and $fusion.framesIntegrated -gt 30), "$($fusion.framesIntegrated) frames, $($fusion.processor)") }
     Check "The shaded preview streams" { @(($previews -ge 20), "$previews pictures in 4 s") }
     Send $c '{"type":"fusion.pause","v":1}'
+
+    # Issue #3: an export must not hold up the tab's other messages, and only one export runs at a time
+    Send $c '{"type":"export","v":1,"kind":"scan","format":"obj"}'
+    Send $c '{"type":"export","v":1,"kind":"scan","format":"ply"}'
+    Send $c '{"type":"fly","v":1}'
+    $order = @(); $end = (Get-Date).AddSeconds(60)
+    while ((Get-Date) -lt $end -and -not ($order -contains 'export')) {
+        $m = Receive $c 1000
+        if ($m -and -not $m.Binary) {
+            if ($m.Text -match '"code":"unknownType"') { $order += 'reply' }
+            elseif ($m.Text -match '"type":"export"') { $order += 'export' }
+            elseif ($m.Text -match 'already being made') { $order += 'refused' }
+        }
+    }
+    Check "While a scan exports, the tab's other messages are answered first (issue #3)" { @(($order.IndexOf('reply') -ge 0 -and $order.IndexOf('reply') -lt $order.IndexOf('export')), ($order -join ' then ')) }
+    Check "A second export at the same time is refused politely (issue #3)" { $order -contains 'refused' }
+
+    # Issue #4: with nobody on the 3D scan tab, the scanner only sends a light status every 2 seconds
+    Send $c '{"type":"subscribe","v":1,"streams":[]}'
+    $null = Collect $c 0.6
+    $quiet = @(Collect $c 4 | Where-Object { -not $_.Binary -and $_.Text -match '"type":"fusion"' }).Count
+    Check "An unwatched scanner sends status only every 2 seconds (issue #4)" { @(($quiet -le 3), "$quiet status messages in 4 s") }
+
     foreach ($format in 'stl', 'obj', 'ply') {
         Send $c ('{"type":"export","v":1,"kind":"scan","format":"' + $format + '"}')
         $reply = WaitFor $c '"type":"(export|error)"' 60
