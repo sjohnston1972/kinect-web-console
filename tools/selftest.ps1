@@ -197,6 +197,18 @@ try {
     Send $c '{"type":"tilt","v":1,"angle":6}'
     Check "Tilt moves, and a second move straight away is refused" { [bool](WaitFor $c '"code":"tiltRefused"' 2) }
 
+    # Issue #13: Fit tilts to frame the tracked person (the mock's walker needs a few degrees down)
+    Start-Sleep -Seconds 1.2   # the tilt motor's one-move-a-second rule, after the tilt checks above
+    Send $c '{"type":"tilt","v":1,"angle":0}'   # a known starting point, so Fit has to move
+    Send $c '{"type":"subscribe","v":1,"streams":["skeletons"]}'
+    Start-Sleep -Milliseconds 1300
+    Send $c '{"type":"tilt.autoframe","v":1}'
+    $frame = WaitFor $c '"type":"(autoframe|error)"' 5
+    # (the mock's skeleton does not move with the tilt motor, so Fit may rightly decide no move is needed)
+    Check "Fit works out a framing for the tracked person and explains it (issue #13)" { @(($frame.type -eq 'autoframe' -and $frame.note -match '^(Tilting to|Already)'), "$($frame.note)") }
+    Send $c '{"type":"subscribe","v":1,"streams":[]}'
+    $null = Collect $c 0.3
+
     Send $c '{"type":"snapshot","v":1}'
     $snap = WaitFor $c '"type":"snapshot"' 5
     Check "Snapshot saves two PNG files that download" {

@@ -14,8 +14,12 @@
     return value == null ? '--' : `${value > 0 ? '+' : ''}${value}°`;
   }
 
+  const fit = document.getElementById('tilt-fit');
+
   function setEnabled(enabled, why) {
     slider.disabled = !enabled;
+    fit.disabled = !enabled;
+    fit.title = enabled ? 'Tilt so the tracked person\'s head and feet are in view' : why;
     holder.title = enabled ? 'Drag and let go to tilt the Kinect. Limited to one move a second to protect the motor.' : why;
   }
 
@@ -46,6 +50,10 @@
       readout.textContent = degrees(actual);
     }
   });
+
+  // Fit: the bridge works out the angle from the tracked person and replies with what it did
+  fit.addEventListener('click', () => Connection.send({ type: 'tilt.autoframe' }));
+  Connection.on('autoframe', (msg) => Notice.show(msg.note, 'info'));
 
   slider.addEventListener('pointerdown', () => { dragging = true; });
   slider.addEventListener('pointerup', () => { dragging = false; });

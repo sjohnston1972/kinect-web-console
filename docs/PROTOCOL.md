@@ -29,6 +29,7 @@ Every JSON message is a text WebSocket message with a `type` and a protocol vers
 | `skeletons` | About 30 times a second while subscribed to `skeletons`. Newest-only | See below |
 | `mocap` | On connect, 4 times a second during a countdown or recording, and when anything changes | See below |
 | `fusion` | On connect; 4 times a second while a page is subscribed to `fusion` or a scan is running; otherwise every 2 seconds without the coverage measurement | See below |
+| `autoframe` | Reply to `tilt.autoframe` | `angle` (degrees, or null when no move was needed or possible), `note` (what it did, in plain English) |
 | `export` | Reply to an `export` request | `kind`, `id`, `format`, `name` (file name), `url` (download link), and for BVH a `note` with the frame count and accuracy |
 
 `status` contents:
@@ -72,6 +73,7 @@ Status is sent "newest only": if a browser falls behind, an unsent older status 
 | `subscribe` | `streams`: list of stream names | Records which streams this tab wants. Known names: `colour`, `depth`, `depthRaw`, `skeletons`, `fusion`. Unknown names are ignored |
 | `sensor.reconnect` | none | Lets go of the sensor and opens it again (the Reconnect button) |
 | `tilt` | `angle`: degrees, -27 to 27 (rounded, and clamped to that range) | Moves the tilt motor, unless it moved less than 1 second ago, has moved 15 times in the last 20 seconds, or is still moving. Refusals come back as a `tiltRefused` error. Requests are refused, never queued |
+| `tilt.autoframe` | none | Works out a tilt that fits the first tracked person's head and feet in view (feet estimated from the floor or a typical height if hidden; the head is kept in view if the person is too tall to fit) and moves there through the same motor limits as `tilt`. Replies with `autoframe`, or a `tiltRefused` error |
 | `live.settings` | `peopleHighlight`: true or false | Greys out everything except tracked people in the depth view and depth snapshots |
 | `skeleton.settings` | `mode`: `standing` or `seated`, and/or `smoothing`: `off`, `light` or `heavy`. Either may be left out | Changes skeleton tracking for everyone and sends a fresh `status`. Changing smoothing pauses tracking for under a second while the Kinect picks people up again |
 | `mocap.start` | none | Starts the 3-second countdown, then records every skeleton frame. Refused while already recording or when the Kinect is not ready. Starts even with nobody tracked, so there is time to step into view |

@@ -21,7 +21,7 @@ Close the black window, or click in it and press Ctrl+C.
 - **Take snapshot:** saves the colour and depth pictures as PNG files in `captures\snapshots`. Links to them appear under the button.
 - **Rates:** pictures per second reaching the page, and how old each picture is when it arrives.
 
-**Tilt:** drag the slider in the top right and let go. The Kinect moves at most once a second and 15 times in 20 seconds, to protect its motor; the page says if it has to wait.
+**Tilt:** drag the slider in the top right and let go, or press **Fit** to tilt so the tracked person's head and feet are in view (it says if they are too tall to fit from where they stand). The Kinect moves at most once a second and 15 times in 20 seconds, to protect its motor; the page says if it has to wait.
 
 ## The Skeleton tab
 

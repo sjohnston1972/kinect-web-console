@@ -18,7 +18,8 @@ namespace KinectBridge.Web
     static class Commands
     {
         public static void Register(MessageHub hub, ISensor sensor, TiltController tilt, StreamPump pump,
-            SkeletonSettings skeletonSettings, Action pushStatus, Recorder recorder, TakeLibrary takes, Scanner scanner, Preferences prefs)
+            SkeletonSettings skeletonSettings, Action pushStatus, Recorder recorder, TakeLibrary takes, Scanner scanner, Preferences prefs,
+            SkeletonPump skeletons)
         {
             hub.On("sensor.reconnect", (client, msg) => sensor.Reconnect());
 
@@ -31,6 +32,19 @@ namespace KinectBridge.Web
                 }
                 var refusal = tilt.Request((int)Math.Round(angle));
                 if (refusal != null) MessageHub.SendError(client, "tiltRefused", refusal);
+            });
+
+            hub.On("tilt.autoframe", (client, msg) =>
+            {
+                var current = sensor.ReadMotion()?.TiltAngle;
+                if (current == null) { MessageHub.SendError(client, "tiltRefused", "The Kinect is not ready, so it cannot tilt."); return; }
+                var target = AutoFrame.Target(skeletons.Latest, current.Value, out var note);
+                if (target != null)
+                {
+                    var refusal = tilt.Request(target.Value);
+                    if (refusal != null) { MessageHub.SendError(client, "tiltRefused", refusal); return; }
+                }
+                MessageHub.Send(client, new { type = "autoframe", v = MessageHub.ProtocolVersion, angle = target, note });
             });
 
             hub.On("live.settings", (client, msg) =>
