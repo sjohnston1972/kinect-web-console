@@ -44,5 +44,20 @@ namespace KinectBridge.Sensor
 
         /// <summary>Reads tilt and accelerometer. Null when there is no working sensor. Talks to USB, so call about once a second.</summary>
         MotionReading ReadMotion();
+
+        /// <summary>
+        /// Moves the tilt motor and returns when it has finished. Throws if there is no working sensor.
+        /// Callers must go through TiltController, which enforces the motor's rate limit.
+        /// </summary>
+        void SetTilt(int angle);
+
+        /// <summary>
+        /// A new colour frame, about 30 a second. The listener owns the frame and must Release it.
+        /// Raised on the sensor's own thread, so listeners must return quickly.
+        /// </summary>
+        event Action<ColourFrame> ColourFrameReady;
+
+        /// <summary>A new depth frame. Same rules as ColourFrameReady.</summary>
+        event Action<DepthFrame> DepthFrameReady;
     }
 }

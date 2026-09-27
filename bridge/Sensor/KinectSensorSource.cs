@@ -28,6 +28,8 @@ namespace KinectBridge.Sensor
         public SensorState State { get { lock (gate) return state; } }
         public string Detail { get { lock (gate) return detail; } }
         public event Action StateChanged;
+        public event Action<ColourFrame> ColourFrameReady;
+        public event Action<DepthFrame> DepthFrameReady;
 
         public void Start()
         {
@@ -59,6 +61,56 @@ namespace KinectBridge.Sensor
                     return null;
                 }
             }
+        }
+
+        public void SetTilt(int angle)
+        {
+            KinectSensor sensor;
+            lock (gate) sensor = active;
+            if (sensor == null || !sensor.IsRunning) throw new InvalidOperationException("No working Kinect");
+            // Blocks while the motor moves. Done outside the gate so status reads carry on meanwhile.
+            sensor.ElevationAngle = angle;
+        }
+
+        void OnColourFrame(object sender, ColorImageFrameReadyEventArgs e)
+        {
+            using (var image = e.OpenColorImageFrame())
+            {
+                if (image == null) return;   // the SDK skipped this one: normal under load
+                var frame = ColourFrame.Rent();
+                image.CopyPixelDataTo(frame.Pixels);
+                Hand(ColourFrameReady, frame);
+            }
+        }
+
+        void OnDepthFrame(object sender, DepthImageFrameReadyEventArgs e)
+        {
+            using (var image = e.OpenDepthImageFrame())
+            {
+                if (image == null) return;
+                var pixels = depthScratch;
+                if (pixels == null || pixels.Length != image.PixelDataLength)
+                    pixels = depthScratch = new DepthImagePixel[image.PixelDataLength];
+                image.CopyDepthImagePixelDataTo(pixels);
+
+                var frame = DepthFrame.Rent();
+                for (int i = 0; i < pixels.Length; i++)
+                {
+                    frame.Depth[i] = pixels[i].Depth;
+                    frame.Player[i] = (byte)pixels[i].PlayerIndex;
+                }
+                Hand(DepthFrameReady, frame);
+            }
+        }
+
+        DepthImagePixel[] depthScratch;   // reused every frame; the SDK raises depth frames on one thread
+
+        /// <summary>Passes a frame on. If nobody is listening, it goes straight back to the pool.</summary>
+        static void Hand<T>(Action<T> listeners, T frame) where T : PooledFrame
+        {
+            if (listeners == null) { frame.Release(); return; }
+            try { listeners(frame); }
+            catch (Exception ex) { Log.Error("Frame handling failed: " + ex.Message); }
         }
 
         void OnStatusChanged(object sender, StatusChangedEventArgs e)
@@ -122,6 +174,14 @@ namespace KinectBridge.Sensor
                 SetState(SensorState.Initialising, sensor.DeviceConnectionId);
             try
             {
+                // Colour and depth at 640x480, 30 frames a second. Skeleton tracking is switched on too:
+                // without it the SDK does not mark which depth pixels belong to a person.
+                sensor.ColorStream.Enable(ColorImageFormat.RgbResolution640x480Fps30);
+                sensor.DepthStream.Enable(DepthImageFormat.Resolution640x480Fps30);
+                sensor.SkeletonStream.Enable();
+                sensor.ColorFrameReady += OnColourFrame;
+                sensor.DepthFrameReady += OnDepthFrame;
+
                 sensor.Start();
                 active = sensor;
                 SetState(SensorState.Ready, sensor.DeviceConnectionId);
@@ -129,10 +189,12 @@ namespace KinectBridge.Sensor
             catch (IOException)
             {
                 // The SDK's way of saying another process already has the Kinect open
+                Unhook(sensor);
                 SetState(SensorState.InUse, sensor.DeviceConnectionId);
             }
             catch (Exception ex)
             {
+                Unhook(sensor);
                 SetState(SensorState.Error, ex.Message);
             }
         }
@@ -141,8 +203,15 @@ namespace KinectBridge.Sensor
         void Release()
         {
             if (active == null) return;
+            Unhook(active);
             try { active.Stop(); } catch { /* already gone */ }
             active = null;
+        }
+
+        void Unhook(KinectSensor sensor)
+        {
+            sensor.ColorFrameReady -= OnColourFrame;
+            sensor.DepthFrameReady -= OnDepthFrame;
         }
 
         static SensorState FromSdkStatus(KinectStatus status)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using KinectBridge.Sensor;
+using KinectBridge.Streams;
 
 namespace KinectBridge.Web
 {
@@ -15,14 +16,19 @@ namespace KinectBridge.Web
 
         readonly ISensor sensor;
         readonly MessageHub hub;
+        readonly StreamPump pump;
+        readonly TiltController tilt;
         readonly DateTime started = DateTime.UtcNow;
         Timer timer;
         volatile MotionReading lastMotion;   // cached, so a new browser gets status without a USB read
+        volatile Dictionary<string, double> lastRates = new Dictionary<string, double>();
 
-        public StatusReporter(ISensor sensor, MessageHub hub)
+        public StatusReporter(ISensor sensor, MessageHub hub, StreamPump pump, TiltController tilt)
         {
             this.sensor = sensor;
             this.hub = hub;
+            this.pump = pump;
+            this.tilt = tilt;
             hub.CurrentStatus = BuildJson;
             sensor.StateChanged += () => { if (sensor.State != SensorState.Ready) lastMotion = null; Push(); };
         }
@@ -37,6 +43,7 @@ namespace KinectBridge.Web
             try
             {
                 lastMotion = sensor.ReadMotion();
+                lastRates = pump.TakeRates();
                 Push();
             }
             catch (Exception ex)
@@ -69,7 +76,7 @@ namespace KinectBridge.Web
                     help = help.Help,
                     detail = sensor.Detail
                 },
-                tilt = motion == null ? null : (object)new { angle = motion.TiltAngle },
+                tilt = motion == null ? null : (object)new { angle = motion.TiltAngle, moving = tilt.IsMoving },
                 accelerometer = motion == null ? null : (object)new
                 {
                     x = Math.Round(motion.X, 3),
@@ -79,7 +86,8 @@ namespace KinectBridge.Web
                     sideTilt = Math.Round(Degrees(Math.Atan2(motion.X, -motion.Y)), 1),
                     frontTilt = Math.Round(Degrees(Math.Atan2(-motion.Z, -motion.Y)), 1)   // same sign as the tilt motor: up is positive
                 },
-                fps = new Dictionary<string, double>(),   // filled in once streams exist (Phase 2)
+                fps = lastRates,   // frames per second arriving from the sensor, per stream
+                live = new { peopleHighlight = pump.HighlightPeople },
                 uptimeSeconds = (int)(DateTime.UtcNow - started).TotalSeconds
             });
         }

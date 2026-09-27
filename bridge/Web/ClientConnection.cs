@@ -48,11 +48,17 @@ namespace KinectBridge.Web
             this.socket = socket;
         }
 
-        /// <summary>The streams this browser tab has asked for.</summary>
+        /// <summary>The streams this browser tab has asked for. Replaced whole, never changed in place.</summary>
         public HashSet<string> Subscriptions
         {
             get { lock (gate) return new HashSet<string>(subscriptions); }
             set { lock (gate) subscriptions = value; }
+        }
+
+        /// <summary>Checked for every frame, so it avoids copying the set.</summary>
+        public bool IsSubscribed(string stream)
+        {
+            lock (gate) return subscriptions.Contains(stream);
         }
 
         /// <summary>Sends JSON text. With a slot name, only the newest message per slot is kept.</summary>

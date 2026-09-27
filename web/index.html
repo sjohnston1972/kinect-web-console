@@ -20,8 +20,7 @@
 
   <div class="header-spacer"></div>
 
-  <!-- Tilt control is wired up in Phase 2. Until then it only shows the current angle. -->
-  <div class="tilt" title="Tilt control is not built yet. It arrives in Phase 2.">
+  <div class="tilt" id="tilt">
     <label for="tilt-slider">Tilt</label>
     <input type="range" id="tilt-slider" min="-27" max="27" step="1" value="0" disabled>
     <output id="tilt-value">--</output>
@@ -39,8 +38,54 @@
 <main class="workspace">
 
   <section class="tab-panel" data-panel="live" hidden>
-    <div class="main-view placeholder"><p>Live colour and depth views arrive in Phase 2.</p></div>
-    <aside class="control-panel"><h2>Live view</h2><p class="muted">Controls arrive in Phase 2.</p></aside>
+    <div class="main-view live-view" id="live-view" data-view="both">
+      <figure class="stream stale" id="colour-figure">
+        <figcaption>Colour</figcaption>
+        <div class="frame">
+          <canvas id="colour-canvas" width="640" height="480"></canvas>
+          <div class="no-signal">Waiting for pictures</div>
+        </div>
+      </figure>
+      <figure class="stream stale" id="depth-figure">
+        <figcaption>Depth</figcaption>
+        <div class="frame">
+          <canvas id="depth-canvas" width="640" height="480"></canvas>
+          <div class="no-signal">Waiting for pictures</div>
+        </div>
+        <div class="legend" aria-label="Depth colour scale, near to far">
+          <div class="legend-bar" id="legend-bar"></div>
+          <div class="legend-ticks" id="legend-ticks"></div>
+          <div class="legend-ends"><span>near</span><span>far</span></div>
+        </div>
+      </figure>
+      <div class="cloud" id="cloud"></div>
+    </div>
+
+    <aside class="control-panel">
+      <h2>View</h2>
+      <div class="segmented" role="radiogroup" aria-label="What to show">
+        <label><input type="radio" name="live-view" value="both" checked><span>Side by side</span></label>
+        <label><input type="radio" name="live-view" value="colour"><span>Colour</span></label>
+        <label><input type="radio" name="live-view" value="depth"><span>Depth</span></label>
+        <label><input type="radio" name="live-view" value="cloud"><span>3D points</span></label>
+      </div>
+      <p class="muted small cloud-hint">3D points: drag to orbit, scroll to zoom, right-drag to pan, double-click to reset.</p>
+
+      <label class="check" id="highlight-row"><input type="checkbox" id="highlight"> Highlight people</label>
+
+      <h2>Snapshot</h2>
+      <button id="snapshot-btn" class="button" disabled>Take snapshot</button>
+      <div class="files" id="snapshot-files"></div>
+
+      <h2>Rates</h2>
+      <dl>
+        <dt>Colour</dt><dd id="fps-colour">--</dd>
+        <dt>Depth</dt><dd id="fps-depth">--</dd>
+        <dt>3D points</dt><dd id="fps-cloud">--</dd>
+        <dt>Delay</dt><dd id="delay">--</dd>
+      </dl>
+      <p class="muted small">Delay is how old a picture is when it reaches this page.</p>
+    </aside>
   </section>
 
   <section class="tab-panel" data-panel="skeleton" hidden>
@@ -107,8 +152,17 @@
 
 </main>
 
+<!-- Three.js is saved in web/vendor/three, so nothing is fetched from the internet -->
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.min.js" } }</script>
+
 <script src="js/connection.js"></script>
-<script src="js/status.js"></script>
+<script src="js/notices.js"></script>
+<script src="js/depthcolours.js"></script>
 <script src="js/app.js"></script>
+<script src="js/status.js"></script>
+<script src="js/tilt.js"></script>
+<script src="js/live.js"></script>
+<script>Tabs.start();</script>
+<script type="module" src="js/pointcloud.js"></script>
 </body>
 </html>

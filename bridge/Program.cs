@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using KinectBridge.Sensor;
+using KinectBridge.Streams;
 using KinectBridge.Web;
 
 namespace KinectBridge
@@ -43,8 +44,11 @@ namespace KinectBridge
             CreateCaptureFolders(settings);
 
             ISensor sensor = mock ? (ISensor)new MockSensor() : new KinectSensorSource();
-            var hub = new MessageHub(sensor);
-            var status = new StatusReporter(sensor, hub);
+            var hub = new MessageHub();
+            var tilt = new TiltController(sensor);
+            var pump = new StreamPump(sensor, hub, settings);
+            var status = new StatusReporter(sensor, hub, pump, tilt);
+            Commands.Register(hub, sensor, tilt, pump);
             var server = new WebServer(settings, hub);
 
             try
@@ -86,6 +90,7 @@ namespace KinectBridge
 
             Log.Info("Stopping");
             status.Dispose();
+            pump.Dispose();
             sensor.Dispose();
             server.Dispose();
             return 0;

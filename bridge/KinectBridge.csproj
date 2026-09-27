@@ -26,6 +26,8 @@
     </Reference>
     <!-- JSON reading and writing, built into .NET Framework -->
     <Reference Include="System.Web.Extensions" />
+    <!-- JPEG and PNG encoding, and drawing the mock sensor's test pictures -->
+    <Reference Include="System.Drawing" />
   </ItemGroup>
 
   <Target Name="CheckKinectSdk" BeforeTargets="ResolveAssemblyReferences"

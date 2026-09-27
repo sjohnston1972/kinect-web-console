@@ -1,8 +1,9 @@
-// The status light in the header, the mock badge, the tilt readout, and everything on the Status tab.
+// The status light in the header, the mock badge, and everything on the Status tab.
 'use strict';
 
 (() => {
   const MAX_LOG_LINES = 50;
+  const STREAM_NAMES = { colour: 'Colour', depth: 'Depth' };
   const $ = (id) => document.getElementById(id);
 
   const BRIDGE_DOWN = {
@@ -47,8 +48,6 @@
     $('st-uptime').textContent = uptimeText(msg.uptimeSeconds);
 
     const tilt = msg.tilt ? msg.tilt.angle : null;
-    $('tilt-value').textContent = degrees(tilt);
-    if (tilt != null) $('tilt-slider').value = tilt;
     $('st-tilt').textContent = degrees(tilt);
 
     const a = msg.accelerometer;
@@ -62,7 +61,7 @@
     for (const [name, value] of rates) {
       const dt = document.createElement('dt');
       const dd = document.createElement('dd');
-      dt.textContent = name;
+      dt.textContent = STREAM_NAMES[name] || name;
       dd.textContent = typeof value === 'number' ? `${value.toFixed(1)} fps` : value;
       $('st-fps').append(dt, dd);
     }
@@ -92,7 +91,10 @@
 
   Connection.on('status', showStatus);
   Connection.on('log', addLogLine);
-  Connection.on('error', (msg) => addLogLine({ time: '', level: 'error', text: `Page: ${msg.message}` }));
+  Connection.on('error', (msg) => {
+    addLogLine({ time: '', level: 'error', text: `Page: ${msg.message}` });
+    Notice.show(msg.message, 'error');
+  });
 
   Connection.on('open', () => {
     $('log').innerHTML = '';   // the bridge re-sends its recent log on every connect
@@ -101,7 +103,6 @@
 
   Connection.on('close', () => {
     setLight(BRIDGE_DOWN.light, BRIDGE_DOWN.title, BRIDGE_DOWN.help);
-    $('tilt-value').textContent = '--';
     setReconnectEnabled(false);
   });
 

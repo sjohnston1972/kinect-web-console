@@ -1,11 +1,15 @@
 // The page's one connection to the bridge.
 // Opens the WebSocket, turns incoming messages into events by their "type",
 // and reconnects by itself if the bridge restarts, like a session that re-establishes after a link flap.
+//
+// Binary messages (pictures and depth) become "stream:N" events, where N is the type byte:
+// 1 colour, 2 depth view, 3 raw depth, 4 3D scan preview.
 'use strict';
 
 const Connection = (() => {
   const PROTOCOL_VERSION = 1;
   const RETRY_MS = 1000;
+  const HEADER_BYTES = 9;
 
   const handlers = {};
   let socket = null;
@@ -20,6 +24,15 @@ const Connection = (() => {
       // One tab's code failing must not stop the others hearing the message
       try { handler(data); } catch (err) { console.error(`Handler for ${type} failed`, err); }
     }
+  }
+
+  // Byte 0 is the stream type, bytes 1 to 8 the timestamp (ms, little-endian), the rest the payload
+  function handleBinary(buffer) {
+    if (buffer.byteLength < HEADER_BYTES) return;
+    const view = new DataView(buffer);
+    const type = view.getUint8(0);
+    const timestamp = Number(view.getBigUint64(1, true));
+    emit(`stream:${type}`, { type, timestamp, buffer, payload: new Uint8Array(buffer, HEADER_BYTES) });
   }
 
   function connect() {
@@ -37,7 +50,7 @@ const Connection = (() => {
         try { message = JSON.parse(event.data); } catch { return; }
         emit(message.type, message);
       } else {
-        emit('binary', event.data);
+        handleBinary(event.data);
       }
     };
 
@@ -58,11 +71,11 @@ const Connection = (() => {
     return true;
   }
 
-  // Joins only the streams the visible tab needs, like joining a multicast group
+  // Joins only the streams the visible view needs, like joining a multicast group
   function subscribe(list) {
     streams = list;
     send({ type: 'subscribe', streams });
   }
 
-  return { on, send, subscribe, connect, isOpen };
+  return { on, send, subscribe, connect, isOpen, HEADER_BYTES };
 })();

@@ -180,6 +180,7 @@ One WebSocket at ws://localhost:8766/ws carries everything live: images as binar
 | fusion | Scan state, tracking OK or lost, current preset |
 | log | A new log line |
 | error | An error code and a plain-English message |
+| snapshot | Reply to a snapshot request: the two saved file names and their download links |
 
 **JSON messages (browser to bridge)**
 
@@ -188,6 +189,8 @@ One WebSocket at ws://localhost:8766/ws carries everything live: images as binar
 | subscribe | The streams the current tab needs |
 | sensor.reconnect | Let go of the sensor and open it again (the Status tab's Reconnect button) |
 | tilt | Target angle in degrees |
+| live.settings | People highlight on or off |
+| snapshot | Save the current colour and depth pictures |
 | skeleton.settings | Standing or seated, smoothing preset |
 | mocap.start, mocap.stop | Start or stop a take |
 | fusion.start, fusion.pause, fusion.reset, fusion.preset | Scan controls |
@@ -238,11 +241,11 @@ The bridge starts, serves the page, opens the WebSocket, and reports status. Moc
 
 ### Phase 2: Live view
 
-- [ ] Colour and depth both show at 25 fps or more
+- [x] Colour and depth both show at 25 fps or more
 - [ ] A hand wave appears on screen with no visible lag
-- [ ] Snapshot saves two PNG files to captures/snapshots
-- [ ] The point cloud can be orbited with the mouse
-- [ ] Tilt moves the Kinect and ignores requests faster than the rate limit
+- [x] Snapshot saves two PNG files to captures/snapshots
+- [x] The point cloud can be orbited with the mouse
+- [x] Tilt moves the Kinect and ignores requests faster than the rate limit
 
 ### Phase 3: Skeleton tracking
 

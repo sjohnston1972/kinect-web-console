@@ -1,31 +1,47 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 
 namespace KinectBridge.Sensor
 {
     /// <summary>
     /// A fake Kinect, used with --mock so the app can be built and tested with the Kinect unplugged.
-    /// It pretends to start up, then reports ready with a level accelerometer that wobbles slightly.
-    /// Test frames and a walking skeleton are added as those streams are built.
+    /// It pretends to start up, then sends 30 colour and depth frames a second of a simple room
+    /// (MockScene draws them), and has a pretend tilt motor that the accelerometer follows.
+    /// A walking skeleton is added in Phase 3.
     /// </summary>
     class MockSensor : ISensor
     {
         const int StartupMs = 1500;
+        const double FrameMs = 1000.0 / 30;
+        const int TiltMs = 600;   // a real move takes about this long
 
         readonly DateTime created = DateTime.UtcNow;
+        readonly MockScene scene = new MockScene();
         Timer startup;
+        Thread frameThread;
+        volatile bool stopping;
         volatile SensorState state = SensorState.Initialising;
+        volatile int tiltAngle;
 
         public bool IsMock => true;
         public SensorState State => state;
         public string Detail => "Fake sensor (mock mode)";
         public event Action StateChanged;
+        public event Action<ColourFrame> ColourFrameReady;
+        public event Action<DepthFrame> DepthFrameReady;
 
         public void Start()
         {
             SetState(SensorState.Initialising);
             startup?.Dispose();
             startup = new Timer(_ => SetState(SensorState.Ready), null, StartupMs, Timeout.Infinite);
+
+            if (frameThread == null)
+            {
+                frameThread = new Thread(FrameLoop) { IsBackground = true, Name = "Mock frames" };
+                frameThread.Start();
+            }
         }
 
         public void Reconnect()
@@ -37,9 +53,62 @@ namespace KinectBridge.Sensor
         public MotionReading ReadMotion()
         {
             if (state != SensorState.Ready) return null;
-            // A gentle wobble, so the page visibly updates
+            // Gravity as the accelerometer would see it at this tilt, plus a gentle wobble so the page visibly updates
             var t = (DateTime.UtcNow - created).TotalSeconds;
-            return new MotionReading { TiltAngle = 0, X = 0.01 * Math.Sin(t / 3), Y = -1, Z = 0.01 * Math.Cos(t / 5) };
+            var radians = tiltAngle * Math.PI / 180;
+            return new MotionReading
+            {
+                TiltAngle = tiltAngle,
+                X = 0.01 * Math.Sin(t / 3),
+                Y = -Math.Cos(radians),
+                Z = -Math.Sin(radians)
+            };
+        }
+
+        public void SetTilt(int angle)
+        {
+            if (state != SensorState.Ready) throw new InvalidOperationException("The mock sensor is not ready");
+            Thread.Sleep(TiltMs);
+            tiltAngle = angle;
+        }
+
+        /// <summary>Sends frames at 30 a second while Ready, timed off a stopwatch so they do not drift.</summary>
+        void FrameLoop()
+        {
+            var clock = Stopwatch.StartNew();
+            long frameNumber = 0;
+            while (!stopping)
+            {
+                var due = (long)(++frameNumber * FrameMs);
+                var wait = due - clock.ElapsedMilliseconds;
+                if (wait > 0) Thread.Sleep((int)wait);
+                else if (wait < -500) frameNumber = (long)(clock.ElapsedMilliseconds / FrameMs);   // fell far behind: skip ahead
+
+                if (state != SensorState.Ready) continue;
+                try
+                {
+                    var seconds = clock.Elapsed.TotalSeconds;
+
+                    var colour = ColourFrame.Rent();
+                    scene.DrawColour(colour.Pixels, seconds);
+                    Hand(ColourFrameReady, colour);
+
+                    var depth = DepthFrame.Rent();
+                    scene.DrawDepth(depth.Depth, depth.Player, seconds);
+                    Hand(DepthFrameReady, depth);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("Mock frame failed: " + ex.Message);
+                    Thread.Sleep(1000);
+                }
+            }
+        }
+
+        static void Hand<T>(Action<T> listeners, T frame) where T : PooledFrame
+        {
+            if (listeners == null) { frame.Release(); return; }
+            listeners(frame);
         }
 
         void SetState(SensorState newState)
@@ -52,7 +121,9 @@ namespace KinectBridge.Sensor
 
         public void Dispose()
         {
+            stopping = true;
             startup?.Dispose();
+            scene.Dispose();
         }
     }
 }

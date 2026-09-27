@@ -2,34 +2,41 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using KinectBridge.Sensor;
 
 namespace KinectBridge.Web
 {
     /// <summary>
     /// The switchboard between the bridge and every open browser tab.
-    /// Keeps the list of connections, sends messages out, and acts on messages coming in.
+    /// Keeps the list of connections, sends messages out, and passes incoming messages
+    /// to the handler registered for their type (see Commands.cs).
     /// Message names and contents are listed in docs/PROTOCOL.md.
     /// </summary>
     class MessageHub
     {
         public const int ProtocolVersion = 1;
 
-        // The streams a browser may subscribe to. Later phases start sending them.
+        // The streams a browser may subscribe to
         static readonly HashSet<string> KnownStreams = new HashSet<string>
             { "colour", "depth", "depthRaw", "skeletons", "fusion" };
 
         readonly object gate = new object();
         readonly List<ClientConnection> clients = new List<ClientConnection>();
-        readonly ISensor sensor;
+        readonly Dictionary<string, Action<ClientConnection, Dictionary<string, object>>> handlers =
+            new Dictionary<string, Action<ClientConnection, Dictionary<string, object>>>();
 
         /// <summary>Builds the current status message. Set by StatusReporter.</summary>
         public Func<string> CurrentStatus;
 
-        public MessageHub(ISensor sensor)
+        public MessageHub()
         {
-            this.sensor = sensor;
             Log.LineAdded += line => Broadcast(Json.Serialize(LogMessage(line)));
+            On("subscribe", HandleSubscribe);
+        }
+
+        /// <summary>Registers what to do when a browser sends a message of this type.</summary>
+        public void On(string type, Action<ClientConnection, Dictionary<string, object>> handler)
+        {
+            handlers[type] = handler;
         }
 
         /// <summary>Looks after one browser from connection until it closes.</summary>
@@ -55,18 +62,46 @@ namespace KinectBridge.Web
         /// <summary>Sends to every browser. With a slot, older unsent messages in that slot are replaced.</summary>
         public void Broadcast(string json, string slot = null)
         {
-            ClientConnection[] targets;
-            lock (gate) targets = clients.ToArray();
-            foreach (var client in targets) client.SendText(json, slot);
+            foreach (var client in Snapshot()) client.SendText(json, slot);
+        }
+
+        /// <summary>Sends a binary frame to the browsers subscribed to that stream, newest-only.</summary>
+        public void BroadcastBinary(string stream, byte[] message)
+        {
+            foreach (var client in Snapshot())
+                if (client.IsSubscribed(stream)) client.SendBinary(message, stream);
+        }
+
+        /// <summary>True if any open browser tab wants this stream. Checked before doing any encoding work.</summary>
+        public bool AnySubscribed(string stream)
+        {
+            return Snapshot().Any(c => c.IsSubscribed(stream));
+        }
+
+        /// <summary>Sends a JSON message to one browser, in order.</summary>
+        public static void Send(ClientConnection client, object message)
+        {
+            client.SendText(Json.Serialize(message));
+        }
+
+        public static void SendError(ClientConnection client, string code, string text)
+        {
+            Send(client, new { type = "error", v = ProtocolVersion, code, message = text });
+        }
+
+        ClientConnection[] Snapshot()
+        {
+            lock (gate) return clients.ToArray();
         }
 
         void HandleText(ClientConnection client, string text)
         {
             // Fault isolation: a bad message is reported to that browser and logged, and nothing else is affected
+            string type = null;
             try
             {
                 var message = Json.Parse(text);
-                var type = message.TryGetValue("type", out var t) ? t as string : null;
+                type = message.TryGetValue("type", out var t) ? t as string : null;
                 var version = message.TryGetValue("v", out var v) && v is int n ? n : 0;
 
                 if (type == null) { SendError(client, "badMessage", "The message has no type."); return; }
@@ -76,23 +111,13 @@ namespace KinectBridge.Web
                     return;
                 }
 
-                switch (type)
-                {
-                    case "subscribe":
-                        HandleSubscribe(client, message);
-                        break;
-                    case "sensor.reconnect":
-                        sensor.Reconnect();
-                        break;
-                    default:
-                        SendError(client, "unknownType", $"The bridge does not understand '{type}' messages yet.");
-                        break;
-                }
+                if (handlers.TryGetValue(type, out var handler)) handler(client, message);
+                else SendError(client, "unknownType", $"The bridge does not understand '{type}' messages yet.");
             }
             catch (Exception ex)
             {
-                Log.Warn($"Could not handle a message from browser {client.Id}: {ex.Message}");
-                SendError(client, "badMessage", "The bridge could not read that message.");
+                Log.Warn($"Could not handle {(type == null ? "a message" : "a '" + type + "' message")} from browser {client.Id}: {ex.Message}");
+                SendError(client, "badMessage", "The bridge could not act on that message.");
             }
         }
 
@@ -105,11 +130,6 @@ namespace KinectBridge.Web
 
             client.Subscriptions = streams;
             Log.Info($"Browser {client.Id} subscribed to: {(streams.Count == 0 ? "no streams" : string.Join(", ", streams))}");
-        }
-
-        static void SendError(ClientConnection client, string code, string text)
-        {
-            client.SendText(Json.Serialize(new { type = "error", v = ProtocolVersion, code, message = text }));
         }
 
         static object LogMessage(LogLine line)

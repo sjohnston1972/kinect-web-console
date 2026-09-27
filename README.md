@@ -1,6 +1,6 @@
 # Kinect Web Console
 
-Use an Xbox 360 Kinect from a web page on this PC. The page shows the Kinect's status, and in later phases live video and depth, skeleton tracking, motion capture and 3D scanning.
+Use an Xbox 360 Kinect from a web page on this PC. The page shows live colour and depth pictures, a 3D point cloud, and the Kinect's status, and lets you tilt the Kinect and save snapshots. Skeleton tracking, motion capture and 3D scanning follow in later phases.
 
 ## Start it
 
@@ -12,6 +12,16 @@ A black window opens, builds the app (a few seconds), then opens the page at htt
 ## Stop it
 
 Close the black window, or click in it and press Ctrl+C.
+
+## The Live tab
+
+- **View:** colour and depth side by side, either one on its own, or **3D points** (drag to orbit, scroll to zoom, right-drag to pan, double-click to reset).
+- **Depth colours:** near is red and orange, far is green and blue. The scale under the depth picture is in metres. Black means no reading: too close (under 0.8 m), too far, or a shiny or dark surface.
+- **Highlight people:** everything except people the Kinect is tracking turns grey. Step fully into view for the Kinect to pick you up.
+- **Take snapshot:** saves the colour and depth pictures as PNG files in `captures\snapshots`. Links to them appear under the button.
+- **Rates:** pictures per second reaching the page, and how old each picture is when it arrives.
+
+**Tilt:** drag the slider in the top right and let go. The Kinect moves at most once a second and 15 times in 20 seconds, to protect its motor; the page says if it has to wait.
 
 ## The status light
 
