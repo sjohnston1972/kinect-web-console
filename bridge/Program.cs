@@ -76,7 +76,11 @@ namespace KinectBridge
             var scanner = new Scanner(sensor, pump, skeletons, hub, settings);
             scanner.Restore(prefs.ScanPreset, prefs.ScanColour, prefs.ScanTurntable);
             hub.Greetings.Add(() => scanner.Message());
-            Commands.Register(hub, sensor, tilt, pump, skeletonSettings, status.Push, recorder, takes, scanner, prefs, skeletons);
+            Commands.Register(new AppParts
+            {
+                Hub = hub, Sensor = sensor, Tilt = tilt, Pump = pump, Skeletons = skeletons, SkeletonSettings = skeletonSettings,
+                PushStatus = status.Push, Recorder = recorder, Takes = takes, Scanner = scanner, Prefs = prefs,
+            });
             var server = new WebServer(settings, hub);
 
             try
