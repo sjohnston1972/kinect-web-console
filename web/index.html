@@ -197,8 +197,8 @@
 
       <h2>Preset</h2>
       <div class="segmented three" role="radiogroup" aria-label="Scan preset">
-        <label title="Small things in fine detail"><input type="radio" name="scan-preset" value="object" checked><span>Object</span></label>
-        <label title="A standing person"><input type="radio" name="scan-preset" value="person"><span>Person</span></label>
+        <label title="Things up to 1 m across, in fine detail"><input type="radio" name="scan-preset" value="object" checked><span>Object</span></label>
+        <label title="A standing person, or something tall like a chair. The box stands on the floor."><input type="radio" name="scan-preset" value="person"><span>Person</span></label>
         <label title="Part of a room, less detail"><input type="radio" name="scan-preset" value="room"><span>Room</span></label>
       </div>
       <p class="muted small" id="scan-preset-text"></p>
@@ -216,7 +216,7 @@
         <button id="scan-reset" class="button" disabled>Reset</button>
       </div>
       <p class="muted small" id="scan-state"></p>
-      <p class="muted small" id="scan-hint">Tip: keep the Kinect still and slowly turn what you are scanning, or walk the Kinect slowly around it. Slow and steady keeps tracking locked on.</p>
+      <p class="muted small" id="scan-hint">Tip: keep what you are scanning still and move the Kinect slowly around it. Turning the thing instead (a person on a swivel chair) only works when nothing else is within range, because Kinect Fusion tracks by the whole scene.</p>
       <p class="small warn-text" id="scan-warning" hidden></p>
 
       <h2>Export</h2>

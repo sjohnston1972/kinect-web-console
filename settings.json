@@ -6,9 +6,9 @@
   },
   "fusion": {
     "presets": {
-      "object": { "label": "Object", "voxelsPerMeter": 512, "voxels": [384, 384, 384], "startDistance": 0.8, "minDepth": 0.5, "maxDepth": 1.8, "meshVoxelStep": 1 },
-      "person": { "label": "Person", "voxelsPerMeter": 256, "voxels": [384, 512, 384], "startDistance": 1.0, "minDepth": 0.5, "maxDepth": 3.0, "meshVoxelStep": 1 },
-      "room": { "label": "Room", "voxelsPerMeter": 128, "voxels": [512, 384, 512], "startDistance": 0.5, "minDepth": 0.5, "maxDepth": 6.0, "meshVoxelStep": 2 }
+      "object": { "label": "Object", "voxelsPerMeter": 512, "voxels": [512, 512, 512], "startDistance": 0.6, "minDepth": 0.5, "maxDepth": 1.8, "meshVoxelStep": 1, "onFloor": false },
+      "person": { "label": "Person", "voxelsPerMeter": 256, "voxels": [384, 512, 384], "startDistance": 1.0, "minDepth": 0.5, "maxDepth": 3.0, "meshVoxelStep": 1, "onFloor": true },
+      "room": { "label": "Room", "voxelsPerMeter": 128, "voxels": [512, 384, 512], "startDistance": 0.5, "minDepth": 0.5, "maxDepth": 6.0, "meshVoxelStep": 2, "onFloor": false }
     }
   }
 }

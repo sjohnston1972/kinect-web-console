@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using KinectBridge.Sensor;
+using KinectBridge.Skeleton;
 using KinectBridge.Streams;
 using KinectBridge.Web;
 using Microsoft.Kinect;
@@ -33,6 +34,7 @@ namespace KinectBridge.Fusion
 
         readonly ISensor sensor;
         readonly StreamPump pump;
+        readonly SkeletonPump skeletons;
         readonly MessageHub hub;
         readonly Dictionary<string, ScanPreset> presets;
         readonly string scansFolder;
@@ -65,16 +67,18 @@ namespace KinectBridge.Fusion
         int integrated;
         string scanId;
         MotionReading gravity;                   // accelerometer at the start of the scan, for levelling exports
+        string placement = "";                   // where the box sits, in words, for the page
         string lastError;
         readonly Stopwatch previewClock = Stopwatch.StartNew();
         int processedCount;
         double fps;
         readonly Stopwatch fpsClock = Stopwatch.StartNew();
 
-        public Scanner(ISensor sensor, StreamPump pump, MessageHub hub, AppSettings settings)
+        public Scanner(ISensor sensor, StreamPump pump, SkeletonPump skeletons, MessageHub hub, AppSettings settings)
         {
             this.sensor = sensor;
             this.pump = pump;
+            this.skeletons = skeletons;
             this.hub = hub;
             presets = ScanPresets.Load(settings.Fusion);
             scansFolder = Path.Combine(settings.CapturesPath, "scans");
@@ -236,9 +240,30 @@ namespace KinectBridge.Fusion
         void NewScan()
         {
             worldToCamera = Matrix4.Identity;
-            // By default the Kinect sits at the middle of the box's front face. Push the box out to the preset's start distance.
+            // By default the Kinect sits at the middle of the box's front face (voxel = metres x voxels-per-metre + half the box).
+            // Push the box out to the preset's start distance.
             var worldToVolume = defaultWorldToVolume;
-            worldToVolume.M43 -= volumePreset.StartDistance * volumePreset.VoxelsPerMeter;
+            var vpm = volumePreset.VoxelsPerMeter;
+            worldToVolume.M43 -= volumePreset.StartDistance * vpm;
+            placement = "centred on where the Kinect points";
+
+            // Stand the box on the floor, if the preset asks and the Kinect can see the floor. Fusion's "down" is
+            // down the picture, and the skeleton tracker's floor plane gives the Kinect's height above the floor.
+            var floor = skeletons.Latest?.Floor;
+            if (volumePreset.OnFloor && floor != null && floor[1] > 0.8)
+            {
+                var height = floor[3] / Math.Sqrt(floor[0] * floor[0] + floor[1] * floor[1] + floor[2] * floor[2]);
+                if (height > 0.2 && height < 2.5)
+                {
+                    const double margin = 0.05;   // a little below the floor, so feet and chair legs are never clipped
+                    worldToVolume.M42 = (float)(volumePreset.VoxelsY - (height + margin) * vpm);
+                    placement = $"standing on the floor, {height:0.00} m below the Kinect";
+                }
+            }
+            else if (volumePreset.OnFloor)
+            {
+                placement = "centred on where the Kinect points (it cannot see the floor, so the box could not be stood on it)";
+            }
             volume.ResetReconstruction(worldToCamera, worldToVolume);
             integrated = 0;
             lostFrames = 0;
@@ -485,6 +510,7 @@ namespace KinectBridge.Fusion
                 ["files"] = RecentFiles(),
                 ["inRange"] = (int)Math.Round(inRange * 100),
                 ["tooClose"] = (int)Math.Round(tooClose * 100),
+                ["placement"] = placement,
                 ["hint"] = sensor.State == SensorState.Ready ? CoverageHint(current, inRange, tooClose) : null,
             });
         }

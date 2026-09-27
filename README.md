@@ -36,7 +36,7 @@ Close the black window, or click in it and press Ctrl+C.
 
 1. Click **Record**. You get a 3-second countdown to step into position (2 to 3 m away, whole body in view).
 2. Move. The view shows your skeleton and a red REC timer.
-3. Click **Stop**. The take is saved in `capturesmocap` and appears in the list, named by date and time.
+3. Click **Stop**. The take is saved in `captures\mocap` and appears in the list, named by date and time.
 
 - Click a take to **play** it. Use the slider to scrub, **Pause** to hold a pose, and **Back to live view** to return.
 - **Rename** and **Delete** are next to each take. Deleted takes go to the Recycle Bin.
@@ -45,11 +45,12 @@ Close the black window, or click in it and press Ctrl+C.
 
 ## The 3D scan tab
 
-1. Pick a **preset**: **Object** (a box 0.75 m across, 2 mm detail, starting 0.8 m away), **Person** (1.5 m wide and 2 m tall, 4 mm detail, starting 1 m away) or **Room** (4 m by 3 m by 4 m, 8 mm detail).
+1. Pick a **preset**: **Object** (a 1 m box, 2 mm detail, starting 0.6 m away, centred on where the Kinect points), **Person** (1.5 m wide and 2 m tall, 4 mm detail, starting 1 m away, standing on the floor: also right for a chair) or **Room** (4 m by 3 m by 4 m, 8 mm detail).
 2. Tick **Capture colour** if you want colours in the PLY and OBJ files.
-3. Press **Start**. The picture shows the model building up, shaded, from the Kinect's point of view.
-4. Move slowly. Either keep the Kinect still and turn the thing you are scanning (a swivel chair works well for a person), or carry the Kinect slowly around it.
-5. Press **Pause** when it looks complete, then **STL**, **OBJ** or **PLY** to save it in `capturesscans`, or **View in 3D** to look at it on the page.
+3. Aim using the depth picture: the **In range** bar should be well into the green. If it says you are too close, step back (the Kinect cannot measure anything nearer than 0.8 m).
+4. Press **Start**. The picture changes to the model building up, shaded, from the Kinect's point of view.
+5. Keep what you are scanning still and move the Kinect slowly around it. Turning the thing instead (a person on a swivel chair) only works when nothing else is within range, because Kinect Fusion works out movement from the whole scene.
+6. Press **Pause** when it looks complete, then **STL**, **OBJ** or **PLY** to save it in `captures\scans`, or **View in 3D** to look at it on the page.
 
 - If the picture shows **Tracking lost**, the Kinect moved too fast. Move it back to where the picture last looked right and hold still, or press **Reset** to start again.
 - **STL** opens in Windows 3D Viewer (double-click the file). **OBJ** and **PLY** open in Blender: File, Import, Wavefront (.obj) or Stanford PLY (.ply).

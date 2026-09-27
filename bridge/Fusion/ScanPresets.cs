@@ -18,6 +18,7 @@ namespace KinectBridge.Fusion
         public float StartDistance;      // metres from the Kinect to the front of the box
         public float MinDepth, MaxDepth; // depth readings outside this range are ignored, in metres
         public int MeshVoxelStep;        // 1 = full detail when exporting, 2 = every other voxel (a quarter of the triangles)
+        public bool OnFloor;             // stand the box on the floor (when the Kinect can see it) rather than centring it on the Kinect's view
 
         public double SizeX => VoxelsX / VoxelsPerMeter;
         public double SizeY => VoxelsY / VoxelsPerMeter;
@@ -35,10 +36,10 @@ namespace KinectBridge.Fusion
 
         static readonly Dictionary<string, ScanPreset> Defaults = new Dictionary<string, ScanPreset>
         {
-            // A box 0.75 m across, 2 mm detail, starting 0.8 m away: a chair or a head on a stool
-            ["object"] = new ScanPreset { Name = "object", Label = "Object", VoxelsPerMeter = 512, VoxelsX = 384, VoxelsY = 384, VoxelsZ = 384, StartDistance = 0.8f, MinDepth = 0.5f, MaxDepth = 1.8f, MeshVoxelStep = 1 },
-            // 1.5 m wide, 2 m tall (a standing person), 4 mm detail, starting 1 m away
-            ["person"] = new ScanPreset { Name = "person", Label = "Person", VoxelsPerMeter = 256, VoxelsX = 384, VoxelsY = 512, VoxelsZ = 384, StartDistance = 1.0f, MinDepth = 0.5f, MaxDepth = 3.0f, MeshVoxelStep = 1 },
+            // A 1 m box, 2 mm detail, starting 0.6 m away, centred on where the Kinect points: a box, a bag, a seat
+            ["object"] = new ScanPreset { Name = "object", Label = "Object", VoxelsPerMeter = 512, VoxelsX = 512, VoxelsY = 512, VoxelsZ = 512, StartDistance = 0.6f, MinDepth = 0.5f, MaxDepth = 1.8f, MeshVoxelStep = 1 },
+            // 1.5 m wide, 2 m tall, standing on the floor, 4 mm detail, starting 1 m away: a person, or a chair
+            ["person"] = new ScanPreset { Name = "person", Label = "Person", VoxelsPerMeter = 256, VoxelsX = 384, VoxelsY = 512, VoxelsZ = 384, StartDistance = 1.0f, MinDepth = 0.5f, MaxDepth = 3.0f, MeshVoxelStep = 1, OnFloor = true },
             // 4 m by 3 m by 4 m, 8 mm detail: a corner of a room
             ["room"] = new ScanPreset { Name = "room", Label = "Room", VoxelsPerMeter = 128, VoxelsX = 512, VoxelsY = 384, VoxelsZ = 512, StartDistance = 0.5f, MinDepth = 0.5f, MaxDepth = 6.0f, MeshVoxelStep = 2 },
         };
@@ -56,7 +57,7 @@ namespace KinectBridge.Fusion
                 {
                     Name = name, Label = d.Label, VoxelsPerMeter = d.VoxelsPerMeter,
                     VoxelsX = d.VoxelsX, VoxelsY = d.VoxelsY, VoxelsZ = d.VoxelsZ,
-                    StartDistance = d.StartDistance, MinDepth = d.MinDepth, MaxDepth = d.MaxDepth, MeshVoxelStep = d.MeshVoxelStep,
+                    StartDistance = d.StartDistance, MinDepth = d.MinDepth, MaxDepth = d.MaxDepth, MeshVoxelStep = d.MeshVoxelStep, OnFloor = d.OnFloor,
                 };
                 if (configured != null && configured.TryGetValue(name, out var raw) && raw is Dictionary<string, object> c)
                 {
@@ -73,6 +74,7 @@ namespace KinectBridge.Fusion
                         if (c.TryGetValue("minDepth", out var mn)) preset.MinDepth = Convert.ToSingle(mn);
                         if (c.TryGetValue("maxDepth", out var mx)) preset.MaxDepth = Convert.ToSingle(mx);
                         if (c.TryGetValue("meshVoxelStep", out var st)) preset.MeshVoxelStep = Math.Max(1, Convert.ToInt32(st));
+                        if (c.TryGetValue("onFloor", out var fl) && fl is bool onFloor) preset.OnFloor = onFloor;
                     }
                     catch (Exception ex)
                     {

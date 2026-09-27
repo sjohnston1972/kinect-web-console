@@ -43,7 +43,7 @@
 
     for (const input of document.querySelectorAll('input[name="scan-preset"]')) input.checked = input.value === s.preset;
     const preset = s.presets.find((p) => p.name === s.preset);
-    $('scan-preset-text').textContent = preset ? presetText(preset) : '';
+    $('scan-preset-text').textContent = preset ? `${presetText(preset)}.${s.placement ? ` Box: ${s.placement}.` : ''}` : '';
     if (document.activeElement !== $('scan-colour')) $('scan-colour').checked = s.colour;
 
     const start = $('scan-start');

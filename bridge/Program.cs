@@ -57,7 +57,7 @@ namespace KinectBridge
             var takes = new TakeLibrary(Path.Combine(settings.CapturesPath, "mocap"));
             var recorder = new Recorder(sensor, hub, takes, skeletonSettings);
             hub.Greetings.Add(() => recorder.Message());
-            var scanner = new Scanner(sensor, pump, hub, settings);
+            var scanner = new Scanner(sensor, pump, skeletons, hub, settings);
             hub.Greetings.Add(() => scanner.Message());
             Commands.Register(hub, sensor, tilt, pump, skeletonSettings, status.Push, recorder, takes, scanner);
             var server = new WebServer(settings, hub);
