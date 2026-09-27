@@ -20,6 +20,7 @@ namespace KinectBridge
         public bool PeopleHighlight;
         public string ScanPreset = "object";
         public bool ScanColour;
+        public bool ScanTurntable;
 
         const int SaveDelayMs = 500;   // several quick changes are saved once
         readonly object gate = new object();
@@ -38,6 +39,7 @@ namespace KinectBridge
                 prefs.PeopleHighlight = Flag(data, "peopleHighlight", prefs.PeopleHighlight);
                 prefs.ScanPreset = Text(data, "scanPreset", prefs.ScanPreset);
                 prefs.ScanColour = Flag(data, "scanColour", prefs.ScanColour);
+                prefs.ScanTurntable = Flag(data, "scanTurntable", prefs.ScanTurntable);
             }
             catch (Exception ex)
             {
@@ -71,6 +73,7 @@ namespace KinectBridge
                         ["peopleHighlight"] = PeopleHighlight,
                         ["scanPreset"] = ScanPreset,
                         ["scanColour"] = ScanColour,
+                        ["scanTurntable"] = ScanTurntable,
                     };
                 }
                 Directory.CreateDirectory(Path.GetDirectoryName(path));

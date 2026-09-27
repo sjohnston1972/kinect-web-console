@@ -62,6 +62,7 @@ On the **Motion capture** and **3D scan** tabs, tick **Hands-free (raise a hand)
 5. Keep what you are scanning still and move the Kinect slowly around it. Turning the thing instead (a person on a swivel chair) only works when nothing else is within range, because Kinect Fusion works out movement from the whole scene.
 6. Press **Pause** when it looks complete, then **STL**, **OBJ** or **PLY** to save it in `captures\scans`, or **View in 3D** to look at it on the page.
 
+- **Turntable** (tick it before Start): keep the Kinect still and slowly turn what you are scanning instead, for example a person on a swivel chair or a thing on a lazy Susan. Only what is inside the scanning box and above the floor is used, so the still room does not confuse the tracking. Keep the object clear of walls.
 - If the picture shows **Tracking lost**, the Kinect moved too fast. Move it back to where the picture last looked right and hold still, or press **Reset** to start again.
 - **STL** opens in Windows 3D Viewer (double-click the file). **OBJ** and **PLY** open in Blender: File, Import, Wavefront (.obj) or Stanford PLY (.ply).
 - Before exporting: **Remove small floating bits** (on by default) drops specks and ghosts of things that moved; **Remove the floor** cuts away the level floor under what you scanned. The note under the buttons says what was removed.

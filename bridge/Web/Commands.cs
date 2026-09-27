@@ -167,6 +167,16 @@ namespace KinectBridge.Web
                 prefs.ScanPreset = name;
                 prefs.Save();
             });
+            hub.On("fusion.turntable", (client, msg) =>
+            {
+                if (msg.TryGetValue("on", out var on) && on is bool b)
+                {
+                    scanner.SetTurntable(b);
+                    prefs.ScanTurntable = b;
+                    prefs.Save();
+                }
+                else MessageHub.SendError(client, "badSetting", "fusion.turntable needs on: true or false.");
+            });
             hub.On("fusion.colour", (client, msg) =>
             {
                 if (msg.TryGetValue("on", out var on) && on is bool b)

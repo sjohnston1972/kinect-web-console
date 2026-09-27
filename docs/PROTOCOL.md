@@ -85,6 +85,7 @@ Status is sent "newest only": if a browser falls behind, an unsent older status 
 | `fusion.reset` | none | Clears the model and starts again from where the Kinect is now. Keeps scanning if it was |
 | `fusion.preset` | `preset`: `object`, `person` or `room` | Switches preset. Clears the model, because the volume is rebuilt at the new size |
 | `fusion.colour` | `on`: true or false | Colour capture: colours go into the model, and into PLY and OBJ exports |
+| `fusion.turntable` | `on`: true or false | Turntable mode: only depth inside the scanning box and more than 3 cm above the floor (the skeleton tracker's floor plane) reaches Kinect Fusion, so turning the object with the Kinect still works. Applies from the next frame |
 | `snapshot` | none | Saves the newest colour and depth pictures as PNG files in `captures/snapshots`, named `snapshot-YYYYMMDD-HHMMSS-mmm-colour.png` and `-depth.png` (to the millisecond, so none overwrite). Replies with a `snapshot` message |
 
 The page sends `subscribe` on every connect, every tab switch, and every change of view on the Live tab.
@@ -216,6 +217,7 @@ Each take is `captures/mocap/<id>.json`, and the page loads it from `/captures/m
   "framesIntegrated": 145,
   "fps": 30.3,
   "colour": false,
+  "turntable": false,
   "processor": "Graphics card: AMD Radeon RX 7700 XT",
   "processorWarning": null,
   "error": null,
@@ -230,7 +232,7 @@ Each take is `captures/mocap/<id>.json`, and the page loads it from `/captures/m
 - `presets` lists all three with their size in metres (width, height, depth), detail in millimetres per voxel, and the distance from the Kinect to the front of the scanned box.
 - `placement` says where the box sits for this scan, in words (for example "standing on the floor, 0.74 m below the Kinect").
 - `files` lists the 12 newest exports in `captures/scans`.
-- `inRange` is the percentage of the newest depth picture inside the preset's scanning range; `tooClose` the percentage nearer than 0.8 m, which the Kinect cannot measure. `hint` is plain-English advice when less than 15% is in range, otherwise null.
+- `turntable` is turntable mode on or off. `inRange` is the percentage of the newest depth picture inside the preset's scanning range (in turntable mode, only what the turntable filter keeps); `tooClose` the percentage nearer than 0.8 m, which the Kinect cannot measure. `hint` is plain-English advice when less than 15% is in range, otherwise null.
 
 ## Scan files
 

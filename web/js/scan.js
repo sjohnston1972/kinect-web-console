@@ -47,6 +47,10 @@
     const preset = s.presets.find((p) => p.name === s.preset);
     $('scan-preset-text').textContent = preset ? `${presetText(preset)}.${s.placement ? ` Box: ${s.placement}.` : ''}` : '';
     if (document.activeElement !== $('scan-colour')) $('scan-colour').checked = s.colour;
+    if (document.activeElement !== $('scan-turntable')) $('scan-turntable').checked = !!s.turntable;
+    $('scan-hint').textContent = s.turntable
+      ? 'Turntable: keep the Kinect still and turn what you are scanning slowly, a full turn in about 30 seconds. Keep it inside the box and clear of the walls.'
+      : 'Tip: keep what you are scanning still and move the Kinect slowly around it. Or tick Turntable to keep the Kinect still and turn the object instead.';
 
     const start = $('scan-start');
     start.textContent = scanning ? 'Pause' : s.state === 'paused' ? 'Carry on' : 'Start';
@@ -184,6 +188,7 @@
     });
   }
   $('scan-colour').addEventListener('change', () => Connection.send({ type: 'fusion.colour', on: $('scan-colour').checked }));
+  $('scan-turntable').addEventListener('change', () => Connection.send({ type: 'fusion.turntable', on: $('scan-turntable').checked }));
 
   $('scan-stl').addEventListener('click', () => exportAs('stl'));
   $('scan-obj').addEventListener('click', () => exportAs('obj'));

@@ -273,6 +273,32 @@ try {
     Check "The shaded preview streams" { @(($previews -ge 20), "$previews pictures in 4 s") }
     Send $c '{"type":"fusion.pause","v":1}'
 
+    # Issue #10: turntable mode hides everything outside the box and the floor, and still tracks
+    Send $c '{"type":"fusion.reset","v":1}'
+    Send $c '{"type":"fusion.preset","v":1,"preset":"person"}'
+    Send $c '{"type":"fusion.turntable","v":1,"on":true}'
+    Send $c '{"type":"fusion.start","v":1}'
+    $messages = Collect $c 4
+    $tt = $messages | Where-Object { -not $_.Binary -and $_.Text -match '"type":"fusion"' } | Select-Object -Last 1 | ForEach-Object { $_.Text | ConvertFrom-Json }
+    Send $c '{"type":"fusion.pause","v":1}'
+    Send $c '{"type":"export","v":1,"kind":"scan","format":"ply","clean":false}'
+    $ttExport = WaitFor $c '"type":"(export|error)"' 60
+    Check "Turntable mode scans and keeps tracking (issue #10)" { @(($tt.turntable -and $tt.tracking -eq 'ok' -and $tt.framesIntegrated -gt 30), "turntable $($tt.turntable), $($tt.framesIntegrated) frames, $($tt.inRange)% in range, $($tt.placement)") }
+    Send $c '{"type":"export","v":1,"kind":"scan","format":"ply","clean":false,"removeFloor":true}'
+    $ttFloor = WaitFor $c '"type":"(export|error)"' 60
+    Check "Turntable scans have almost no floor, under 2% of the model (issue #10)" {
+        $total = [int](([regex]::Match("$($ttExport.note)", '^([\d,]+) triangles').Groups[1].Value) -replace ',', '')
+        $floorBits = [int](([regex]::Match("$($ttFloor.note)", 'Removed the floor \(([\d,]+) triangles').Groups[1].Value) -replace ',', '')
+        @(($total -gt 1000 -and $floorBits -lt $total * 0.02), "$floorBits of $total triangles were floor")
+    }
+    Send $c '{"type":"fusion.turntable","v":1,"on":false}'
+    Send $c '{"type":"fusion.reset","v":1}'
+    Send $c '{"type":"fusion.preset","v":1,"preset":"room"}'
+    Send $c '{"type":"fusion.start","v":1}'
+    Start-Sleep -Seconds 2
+    Send $c '{"type":"fusion.pause","v":1}'
+    $null = Collect $c 0.5
+
     # Issue #3: an export must not hold up the tab's other messages, and only one export runs at a time
     Send $c '{"type":"export","v":1,"kind":"scan","format":"obj"}'
     Send $c '{"type":"export","v":1,"kind":"scan","format":"ply"}'
@@ -393,7 +419,7 @@ try {
     $c = New-Client
     $null = WaitFor $c '"type":"status"' 3
     foreach ($m in '{"type":"skeleton.settings","v":1,"mode":"seated","smoothing":"heavy"}', '{"type":"live.settings","v":1,"peopleHighlight":true}',
-                   '{"type":"fusion.preset","v":1,"preset":"person"}', '{"type":"fusion.colour","v":1,"on":true}') { Send $c $m }
+                   '{"type":"fusion.preset","v":1,"preset":"person"}', '{"type":"fusion.colour","v":1,"on":true}', '{"type":"fusion.turntable","v":1,"on":true}') { Send $c $m }
     Start-Sleep -Seconds 1.5   # preferences are saved half a second after the last change
     Close $c
     Stop-Process -Id $bridge.Id; $bridge.WaitForExit(5000) | Out-Null
@@ -405,7 +431,7 @@ try {
         $fusion = WaitFor $c '"type":"fusion"' 3
         Check "Skeleton mode and smoothing are remembered" { @(($status.skeleton.mode -eq 'seated' -and $status.skeleton.smoothing -eq 'heavy'), "$($status.skeleton.mode), $($status.skeleton.smoothing)") }
         Check "People highlight is remembered" { $status.live.peopleHighlight -eq $true }
-        Check "Scan preset and colour are remembered" { @(($fusion.preset -eq 'person' -and $fusion.colour -eq $true), "$($fusion.preset), colour $($fusion.colour)") }
+        Check "Scan preset, colour and turntable are remembered" { @(($fusion.preset -eq 'person' -and $fusion.colour -eq $true -and $fusion.turntable -eq $true), "$($fusion.preset), colour $($fusion.colour), turntable $($fusion.turntable)") }
 
         # Issue #5: after a restart the take list comes from the index, without reading each take in full
         $found = Get-Content "$work\bridge-output-restart.txt" | Select-String "Found \d+ saved takes" | Select-Object -First 1

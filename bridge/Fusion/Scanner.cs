@@ -62,6 +62,8 @@ namespace KinectBridge.Fusion
         State state = State.Idle;
         string presetName = "object";
         bool colour;
+        bool turntable;                          // turntable mode: only depth inside the box and above the floor
+        TurntableFilter filter;                  // set while scanning in turntable mode
         bool colourUsed;                         // colour was on for at least part of this scan
         int lostFrames;
         int integrated;
@@ -156,13 +158,41 @@ namespace KinectBridge.Fusion
         }
 
         /// <summary>Puts back last run's preset and colour setting, before anything is scanned.</summary>
-        public void Restore(string preset, bool colourOn)
+        public void Restore(string preset, bool colourOn, bool turntableOn)
         {
             lock (gate)
             {
                 if (preset != null && presets.ContainsKey(preset)) presetName = preset;
                 colour = colourOn;
+                turntable = turntableOn;
             }
+        }
+
+        /// <summary>Turntable mode on or off. Applies from the next frame; the model so far is kept.</summary>
+        public void SetTurntable(bool on)
+        {
+            lock (gate)
+            {
+                turntable = on;
+                filter = on && volumePreset != null ? MakeFilter(volumePreset) : null;
+            }
+            Log.Info($"3D scan: turntable mode {(on ? "on" : "off")}");
+            Broadcast();
+        }
+
+        /// <summary>The floor the skeleton tracker sees now: the plane, and the Kinect's height above it (or nulls).</summary>
+        (float[] plane, double? height) FloorNow()
+        {
+            var floor = skeletons.Latest?.Floor;
+            if (floor == null || floor[1] <= 0.8) return (null, null);
+            var height = floor[3] / Math.Sqrt(floor[0] * floor[0] + floor[1] * floor[1] + floor[2] * floor[2]);
+            return height > 0.2 && height < 2.5 ? (floor, height) : (floor, (double?)null);
+        }
+
+        TurntableFilter MakeFilter(ScanPreset preset)
+        {
+            var (plane, height) = FloorNow();
+            return new TurntableFilter(preset, plane, preset.OnFloor ? height : null);
         }
 
         public void SetColour(bool on)
@@ -262,16 +292,12 @@ namespace KinectBridge.Fusion
 
             // Stand the box on the floor, if the preset asks and the Kinect can see the floor. Fusion's "down" is
             // down the picture, and the skeleton tracker's floor plane gives the Kinect's height above the floor.
-            var floor = skeletons.Latest?.Floor;
-            if (volumePreset.OnFloor && floor != null && floor[1] > 0.8)
+            var floorHeight = FloorNow().height;
+            if (volumePreset.OnFloor && floorHeight != null)
             {
-                var height = floor[3] / Math.Sqrt(floor[0] * floor[0] + floor[1] * floor[1] + floor[2] * floor[2]);
-                if (height > 0.2 && height < 2.5)
-                {
-                    const double margin = 0.05;   // a little below the floor, so feet and chair legs are never clipped
-                    worldToVolume.M42 = (float)(volumePreset.VoxelsY - (height + margin) * vpm);
-                    placement = $"standing on the floor, {height:0.00} m below the Kinect";
-                }
+                const double margin = 0.05;   // a little below the floor, so feet and chair legs are never clipped
+                worldToVolume.M42 = (float)(volumePreset.VoxelsY - (floorHeight.Value + margin) * vpm);
+                placement = $"standing on the floor, {floorHeight.Value:0.00} m below the Kinect";
             }
             else if (volumePreset.OnFloor)
             {
@@ -281,6 +307,7 @@ namespace KinectBridge.Fusion
             integrated = 0;
             lostFrames = 0;
             colourUsed = false;
+            filter = turntable ? MakeFilter(volumePreset) : null;
             scanId = "scan-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + presetName;
             gravity = sensor.ReadMotion();
         }
@@ -316,8 +343,13 @@ namespace KinectBridge.Fusion
                 if (depth == null) return;
                 try
                 {
+                    var keep = filter;
                     for (int i = 0; i < pixels.Length; i++)
-                        pixels[i] = new DepthImagePixel { Depth = depth.Depth[i], PlayerIndex = depth.Player[i] };
+                    {
+                        short mm = depth.Depth[i];
+                        if (keep != null && !keep.Keep(i % Width, i / Width, mm)) mm = 0;   // turntable mode hides the rest
+                        pixels[i] = new DepthImagePixel { Depth = mm, PlayerIndex = depth.Player[i] };
+                    }
                     volume.DepthToDepthFloatFrame(pixels, depthFloat, volumePreset.MinDepth, volumePreset.MaxDepth, false);
 
                     bool tracked;
@@ -471,6 +503,8 @@ namespace KinectBridge.Fusion
             {
                 int near = (int)(Math.Max(preset.MinDepth, KinectNearestMm / 1000f) * 1000);
                 int far = (int)(Math.Min(preset.MaxDepth, preset.StartDistance + preset.SizeZ) * 1000);
+                // In turntable mode, only what the filter keeps counts as in range
+                var keep = turntable ? MakeFilter(preset) : null;
                 int inRange = 0, tooClose = 0, total = 0;
                 // Every 4th pixel each way is plenty for a percentage
                 for (int y = 0; y < Height; y += 4)
@@ -478,7 +512,7 @@ namespace KinectBridge.Fusion
                     {
                         int mm = depth.Depth[y * Width + x];
                         total++;
-                        if (mm >= near && mm <= far) inRange++;
+                        if (mm >= near && mm <= far && (keep == null || keep.Keep(x, y, mm))) inRange++;
                         else if (mm > 0 && mm < KinectNearestMm) tooClose++;
                     }
                 return (inRange / (double)total, tooClose / (double)total);
@@ -514,12 +548,12 @@ namespace KinectBridge.Fusion
         {
             State s;
             string preset, error, warning, processor, id;
-            bool col;
+            bool col, tt;
             int lost, frames;
             lock (gate)
             {
                 s = state; preset = presetName; error = lastError; warning = processorWarning; processor = processorText;
-                col = colour; lost = lostFrames; frames = integrated; id = scanId;
+                col = colour; tt = turntable; lost = lostFrames; frames = integrated; id = scanId;
                 var seconds = fpsClock.Elapsed.TotalSeconds;
                 if (seconds >= 1)
                 {
@@ -548,6 +582,7 @@ namespace KinectBridge.Fusion
                 ["framesIntegrated"] = frames,
                 ["fps"] = s == State.Scanning ? fps : 0,
                 ["colour"] = col,
+                ["turntable"] = tt,
                 ["processor"] = processor,
                 ["processorWarning"] = warning,
                 ["error"] = error,
