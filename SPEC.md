@@ -242,7 +242,7 @@ The bridge starts, serves the page, opens the WebSocket, and reports status. Moc
 ### Phase 2: Live view
 
 - [x] Colour and depth both show at 25 fps or more
-- [ ] A hand wave appears on screen with no visible lag
+- [x] A hand wave appears on screen with no visible lag
 - [x] Snapshot saves two PNG files to captures/snapshots
 - [x] The point cloud can be orbited with the mouse
 - [x] Tilt moves the Kinect and ignores requests faster than the rate limit
