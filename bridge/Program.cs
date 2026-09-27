@@ -71,7 +71,7 @@ namespace KinectBridge
             var skeletons = new SkeletonPump(sensor, hub);
             var status = new StatusReporter(sensor, hub, pump, tilt, skeletons, skeletonSettings);
             var takes = new TakeLibrary(Path.Combine(settings.CapturesPath, "mocap"), useRecycleBin: !settings.IsSelfTest);
-            var recorder = new Recorder(sensor, hub, takes, skeletonSettings);
+            var recorder = new Recorder(sensor, skeletons, hub, takes, skeletonSettings);
             hub.Greetings.Add(() => recorder.Message());
             var scanner = new Scanner(sensor, pump, skeletons, hub, settings);
             scanner.Restore(prefs.ScanPreset, prefs.ScanColour);

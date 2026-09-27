@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using KinectBridge.Sensor;
 using KinectBridge.Streams;
@@ -20,6 +21,10 @@ namespace KinectBridge.Skeleton
         readonly MessageHub hub;
         readonly StreamWorker worker;
         SkeletonData latest;
+        readonly Dictionary<int, int> personById = new Dictionary<int, int>();   // SDK tracking id to person number
+
+        /// <summary>Raised after each frame has its person numbers, for anything that keeps frames (motion capture).</summary>
+        public event Action<SkeletonData> FrameReady;
         int count;
         readonly Stopwatch rateClock = Stopwatch.StartNew();
 
@@ -36,9 +41,34 @@ namespace KinectBridge.Skeleton
 
         void OnFrame(SkeletonData data)
         {
+            NumberPeople(data);
+            try { FrameReady?.Invoke(data); }
+            catch (Exception ex) { Log.Error("Skeleton listener failed: " + ex.Message); }
             Interlocked.Increment(ref count);
             Volatile.Write(ref latest, data);
             if (hub.AnySubscribed("skeletons")) worker.Signal();
+        }
+
+        /// <summary>
+        /// Gives each tracked person a number in the order they appeared: the lowest number not in use.
+        /// People who leave free their number. Several appearing at once are numbered in the SDK's order.
+        /// Only called from the sensor's skeleton thread, so it needs no lock.
+        /// </summary>
+        void NumberPeople(SkeletonData data)
+        {
+            var present = new HashSet<int>(data.Bodies.Select(b => b.Id));
+            foreach (var gone in personById.Keys.Where(id => !present.Contains(id)).ToList()) personById.Remove(gone);
+            foreach (var body in data.Bodies.OrderBy(b => b.Player))
+            {
+                if (!personById.TryGetValue(body.Id, out var number))
+                {
+                    number = 1;
+                    while (personById.ContainsValue(number)) number++;
+                    personById[body.Id] = number;
+                }
+                body.Person = number;
+            }
+            data.Bodies.Sort((a, b) => a.Person.CompareTo(b.Person));
         }
 
         void Send()
@@ -70,7 +100,7 @@ namespace KinectBridge.Skeleton
                         state = joint.Inferred ? "inferred" : "tracked",
                     };
                 }
-                bodies.Add(new { id = body.Id, player = body.Player, joints });
+                bodies.Add(new { id = body.Id, player = body.Player, person = body.Person, joints });
             }
 
             return new

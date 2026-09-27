@@ -112,11 +112,11 @@ export function createSkeletonScene() {
       const msg = waiting;
       waiting = null;
       placeFloor(floorGrid, msg.floor);
-      const seen = new Set(msg.bodies.map((body) => body.player));
+      const seen = new Set(msg.bodies.map((body) => SkeletonModel.personOf(body)));
       for (let player = 1; player <= MAX_PLAYERS; player++) {
         if (!seen.has(player)) figures[player].group.visible = false;
       }
-      for (const body of msg.bodies) figures[body.player]?.update(body);
+      for (const body of msg.bodies) figures[SkeletonModel.personOf(body)]?.update(body);
     };
   }
 

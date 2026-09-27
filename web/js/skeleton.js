@@ -46,7 +46,7 @@
     if (!latest || performance.now() - latestAt > STALE_MS) return;
 
     for (const body of latest.bodies) {
-      const colour = SkeletonModel.colourFor(body.player);
+      const colour = SkeletonModel.colourFor(SkeletonModel.personOf(body));
       const at = (name) => body.joints[name] && body.joints[name][picture];
 
       for (const [a, b] of SkeletonModel.BONES) {
@@ -114,9 +114,9 @@
       row.className = 'person';
       const swatch = document.createElement('span');
       swatch.className = 'swatch';
-      swatch.style.background = SkeletonModel.colourFor(body.player);
+      swatch.style.background = SkeletonModel.colourFor(SkeletonModel.personOf(body));
       const text = document.createElement('span');
-      text.textContent = `Person ${body.player}: ${joints.length} joints${guessed ? `, ${guessed} guessed` : ''}`;
+      text.textContent = `Person ${SkeletonModel.personOf(body)}: ${joints.length} joints${guessed ? `, ${guessed} guessed` : ''}`;
       row.append(swatch, text);
       list.append(row);
     }

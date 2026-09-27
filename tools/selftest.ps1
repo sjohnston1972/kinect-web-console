@@ -175,6 +175,7 @@ try {
         $joints = $sample.bodies | ForEach-Object { ($_.joints.PSObject.Properties | Measure-Object).Count }
         @(($sample.bodies.Count -eq 2 -and -not ($joints | Where-Object { $_ -ne 20 })), "joints per person: $($joints -join ', ')")
     }
+    Check "People are numbered 1 and 2 in the order they appeared (issue #6)" { @((($sample.bodies.person -join ',') -eq '1,2'), "person numbers: $($sample.bodies.person -join ', ')") }
 
     Send $c '{"type":"skeleton.settings","v":1,"mode":"seated"}'
     $seated = $null; $end = (Get-Date).AddSeconds(3)
@@ -332,7 +333,7 @@ try {
             $null = Js "document.querySelector('.tabs button[data-tab=$tab]').click()"
             Start-Sleep -Seconds 2
         }
-        Check "Skeleton tab lists two people" { @(((Js "document.getElementById('skeleton-people').innerText") -match 'Person 1'), ((Js "document.getElementById('skeleton-people').innerText") -replace "`n", '; ')) }
+        Check "Skeleton tab lists Person 1 then Person 2" { $people = Js "document.getElementById('skeleton-people').innerText"; @(($people -match '^Person 1.*Person 2'), ($people -replace "`n", '; ')) }
         Check "Status tab shows the mock sensor" { (Js "document.getElementById('st-mode').textContent") -match 'Mock' }
         $null = Js "1"   # collect any last errors
         Check "No script errors on any tab" { if ($problems.Count) { "$($problems.Count): " + ($problems | Select-Object -First 2) -join ' | ' } else { $true } }

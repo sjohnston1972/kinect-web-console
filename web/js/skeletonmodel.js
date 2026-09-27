@@ -12,12 +12,18 @@ const SkeletonModel = (() => {
     ['hipCenter', 'hipRight'], ['hipRight', 'kneeRight'], ['kneeRight', 'ankleRight'], ['ankleRight', 'footRight'],
   ];
 
-  // By player number (1 to 6), bright enough to read over both colour and depth pictures
-  const PLAYER_COLOURS = ['#ff4d6d', '#2ec4ff', '#ffd23f', '#6ee26e', '#c77dff', '#ff9f40'];
+  // By person number: first red, then blue, yellow, green, purple, orange. Bright enough for both pictures.
+  const PERSON_COLOURS = ['#ff4d6d', '#2ec4ff', '#ffd23f', '#6ee26e', '#c77dff', '#ff9f40'];
 
-  function colourFor(player) {
-    return PLAYER_COLOURS[(player - 1 + PLAYER_COLOURS.length) % PLAYER_COLOURS.length];
+  function colourFor(person) {
+    return PERSON_COLOURS[(person - 1 + PERSON_COLOURS.length) % PERSON_COLOURS.length];
   }
 
-  return { BONES, colourFor };
+  // A body's person number: 1, 2, ... in the order people appeared (from the bridge).
+  // Takes recorded before person numbers existed only have the SDK's player number.
+  function personOf(body) {
+    return body.person || body.player;
+  }
+
+  return { BONES, colourFor, personOf };
 })();

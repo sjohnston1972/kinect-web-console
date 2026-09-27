@@ -29,6 +29,7 @@ namespace KinectBridge.Mocap
         }
 
         readonly ISensor sensor;
+        readonly SkeletonPump skeletons;
         readonly MessageHub hub;
         readonly TakeLibrary library;
         readonly SkeletonSettings skeletonSettings;
@@ -41,13 +42,15 @@ namespace KinectBridge.Mocap
         float[] floor;
         int peopleNow;
 
-        public Recorder(ISensor sensor, MessageHub hub, TakeLibrary library, SkeletonSettings skeletonSettings)
+        public Recorder(ISensor sensor, SkeletonPump skeletons, MessageHub hub, TakeLibrary library, SkeletonSettings skeletonSettings)
         {
             this.sensor = sensor;
+            this.skeletons = skeletons;
             this.hub = hub;
             this.library = library;
             this.skeletonSettings = skeletonSettings;
-            sensor.SkeletonFrameReady += OnSkeleton;
+            // From the skeleton pump rather than the sensor, so frames arrive with their person numbers
+            skeletons.FrameReady += OnSkeleton;
             ticker = new Timer(_ => Tick(), null, Timeout.Infinite, Timeout.Infinite);
         }
 
@@ -197,7 +200,7 @@ namespace KinectBridge.Mocap
                     ["rot"] = new[] { Math.Round(r.X, 5), Math.Round(r.Y, 5), Math.Round(r.Z, 5), Math.Round(r.W, 5) },
                 };
             }
-            return new Dictionary<string, object> { ["id"] = body.Id, ["player"] = body.Player, ["joints"] = joints };
+            return new Dictionary<string, object> { ["id"] = body.Id, ["player"] = body.Player, ["person"] = body.Person, ["joints"] = joints };
         }
 
         /// <summary>The current mocap message. Takes are included on connect and whenever the list changes.</summary>
@@ -234,7 +237,7 @@ namespace KinectBridge.Mocap
 
         public void Dispose()
         {
-            sensor.SkeletonFrameReady -= OnSkeleton;
+            skeletons.FrameReady -= OnSkeleton;
             ticker.Dispose();
         }
     }

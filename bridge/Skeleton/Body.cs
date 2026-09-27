@@ -72,8 +72,14 @@ namespace KinectBridge.Skeleton
         /// <summary>The SDK's tracking number, stable while the person stays in view.</summary>
         public int Id;
 
-        /// <summary>1 to 6. Matches the person number marked in each depth pixel.</summary>
+        /// <summary>1 to 6. The SDK's own number, which matches the person number marked in each depth pixel.</summary>
         public int Player;
+
+        /// <summary>
+        /// 1, 2, ... in the order people appeared, kept while they stay tracked. The page's colours and labels use this,
+        /// so one person alone is always Person 1. Set by SkeletonPump.
+        /// </summary>
+        public int Person;
 
         /// <summary>Indexed by joint number. Null where the joint is not tracked at all (for example, legs in seated mode).</summary>
         public readonly BodyJoint[] Joints = new BodyJoint[Skeleton.Joints.Count];

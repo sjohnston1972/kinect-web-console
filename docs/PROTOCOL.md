@@ -136,7 +136,7 @@ The depth colours are defined twice and must match: `bridge/Streams/DepthColouri
 ```
 
 - `bodies` holds the fully tracked people: up to 2 on the Xbox 360 Kinect. Empty when nobody is tracked.
-- `id` is the SDK's tracking number, stable while the person stays in view. `player` (1 to 6) matches the person number in the depth picture, and picks the person's colour on the page.
+- `id` is the SDK's tracking number, stable while the person stays in view. `player` (1 to 6) is the SDK's own number, which matches the person number in the depth picture. `person` is 1, 2, ... in the order people appeared (the lowest number not in use), kept while they stay tracked; bodies are listed in `person` order, and the page colours and labels people by it, so one person alone is always Person 1 in red.
 - `joints` is keyed by joint name: `hipCenter`, `spine`, `shoulderCenter`, `head`, `shoulderLeft`, `elbowLeft`, `wristLeft`, `handLeft`, `shoulderRight`, `elbowRight`, `wristRight`, `handRight`, `hipLeft`, `kneeLeft`, `ankleLeft`, `footLeft`, `hipRight`, `kneeRight`, `ankleRight`, `footRight`. Joints the Kinect is not tracking at all are left out; in seated mode only the 10 from `head` to `handRight` appear.
 - `p` is the position in metres from the Kinect: X sideways (positive is to the right in the pictures), Y up, Z straight out from the sensor. Rounded to the millimetre.
 - `colour` and `depth` are the joint's pixel position in the 640x480 colour and depth pictures, from the SDK's coordinate mapper, which allows for the gap between the two cameras.
