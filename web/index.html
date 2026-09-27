@@ -242,6 +242,8 @@
         <button id="scan-ply" class="button small" disabled>PLY</button>
         <button id="scan-model" class="button small" disabled>View in 3D</button>
       </div>
+      <label class="check" title="Drop specks of noise and ghosts of things that moved during the scan"><input type="checkbox" id="scan-clean" checked> Remove small floating bits</label>
+      <label class="check" title="Cut away the level floor under what you scanned"><input type="checkbox" id="scan-nofloor"> Remove the floor</label>
       <p class="muted small" id="scan-note"></p>
       <p class="muted small">STL opens in Windows 3D Viewer (millimetres). OBJ and PLY open in Blender (metres). Saved in captures\scans.</p>
       <div class="files" id="scan-files"></div>

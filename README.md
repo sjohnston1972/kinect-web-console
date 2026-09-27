@@ -64,6 +64,7 @@ On the **Motion capture** and **3D scan** tabs, tick **Hands-free (raise a hand)
 
 - If the picture shows **Tracking lost**, the Kinect moved too fast. Move it back to where the picture last looked right and hold still, or press **Reset** to start again.
 - **STL** opens in Windows 3D Viewer (double-click the file). **OBJ** and **PLY** open in Blender: File, Import, Wavefront (.obj) or Stanford PLY (.ply).
+- Before exporting: **Remove small floating bits** (on by default) drops specks and ghosts of things that moved; **Remove the floor** cuts away the level floor under what you scanned. The note under the buttons says what was removed.
 - Changing preset or pressing Reset clears the scan, so export first if you want to keep it.
 - The presets' sizes and detail are in `settings.json` under `fusion`.
 

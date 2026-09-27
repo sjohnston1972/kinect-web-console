@@ -129,7 +129,16 @@ namespace KinectBridge.Web
                 var id = msg.TryGetValue("id", out var i) ? i as string : null;
                 var format = msg.TryGetValue("format", out var f) ? f as string : null;
                 // Exports can take seconds, so they run in the background; this tab's other messages carry on meanwhile
-                if (kind == "scan") { Task.Run(() => ExportScan(client, scanner, format)); return; }
+                if (kind == "scan")
+                {
+                    var cleanup = new MeshWriter.Cleanup
+                    {
+                        RemoveFragments = !(msg.TryGetValue("clean", out var cl) && cl is bool keepAll && !keepAll),
+                        RemoveFloor = msg.TryGetValue("removeFloor", out var rf) && rf is bool floor && floor,
+                    };
+                    Task.Run(() => ExportScan(client, scanner, format, cleanup));
+                    return;
+                }
                 if (kind != "take") { MessageHub.SendError(client, "badExport", "Export needs a kind: take or scan."); return; }
                 if (!takes.Exists(id)) { MessageHub.SendError(client, "noSuchTake", "That take no longer exists."); return; }
 
@@ -216,7 +225,7 @@ namespace KinectBridge.Web
         }
 
         /// <summary>Makes the mesh file and replies with its download link. Runs in the background; scanning only waits while the mesh is read out.</summary>
-        static void ExportScan(ClientConnection client, Scanner scanner, string format)
+        static void ExportScan(ClientConnection client, Scanner scanner, string format, MeshWriter.Cleanup cleanup)
         {
             if (format != "stl" && format != "obj" && format != "ply" && format != "preview")
             {
@@ -225,8 +234,10 @@ namespace KinectBridge.Web
             }
             try
             {
-                var (name, url, result) = scanner.Export(format);
-                var note = $"{result.Triangles:N0} triangles, {result.SizeX:0.00} m wide, {result.SizeY:0.00} m deep, {result.SizeZ:0.00} m tall.";
+                var (name, url, result) = scanner.Export(format, cleanup);
+                var note = $"{result.Triangles:N0} triangles, {result.SizeX:0.00} m wide, {result.SizeY:0.00} m deep, {result.SizeZ:0.00} m tall."
+                    + (result.RemovedPieces > 0 ? $" Removed {result.RemovedPieces:N0} small floating pieces ({result.RemovedPieceTriangles:N0} triangles)." : "")
+                    + (result.RemovedFloorTriangles > 0 ? $" Removed the floor ({result.RemovedFloorTriangles:N0} triangles)." : cleanup.RemoveFloor ? " No level floor was found to remove." : "");
                 MessageHub.Send(client, new { type = "export", v = MessageHub.ProtocolVersion, kind = "scan", format, name, url, note });
             }
             catch (InvalidOperationException ex) { MessageHub.SendError(client, "exportFailed", ex.Message); }

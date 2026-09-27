@@ -410,7 +410,7 @@ namespace KinectBridge.Fusion
         /// Saves the model as stl, obj or ply in captures\scans, or as a lighter "preview" PLY for the page's 3D view.
         /// Returns the file name and the writer's summary. Throws InvalidOperationException with a plain-English message.
         /// </summary>
-        public (string name, string url, MeshWriter.Result result) Export(string format)
+        public (string name, string url, MeshWriter.Result result) Export(string format, MeshWriter.Cleanup cleanup)
         {
             if (Interlocked.CompareExchange(ref exporting, 1, 0) != 0)
                 throw new InvalidOperationException("An export is already being made. Wait for it to finish, then try again.");
@@ -439,7 +439,7 @@ namespace KinectBridge.Fusion
 
                 using (mesh)
                 {
-                    var result = MeshWriter.Write(mesh, preview ? "ply" : format, path, withColour, level);
+                    var result = MeshWriter.Write(mesh, preview ? "ply" : format, path, withColour, level, cleanup);
                     if (!preview)
                     {
                         Log.Info($"3D scan: saved {fileName}: {result.Triangles:N0} triangles, {result.SizeX:0.00} x {result.SizeY:0.00} x {result.SizeZ:0.00} m");

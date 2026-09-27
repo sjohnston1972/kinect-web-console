@@ -79,7 +79,7 @@ Status is sent "newest only": if a browser falls behind, an unsent older status 
 | `mocap.rename` | `id`, `name` | Renames the take; the file is renamed to match (unsafe characters become dashes). Any BVH made under the old name is removed |
 | `mocap.delete` | `id` | Moves the take and its BVH to the Recycle Bin |
 | `mocap.trim` | `id`, `start`, `end` (seconds); both left out to clear | Keeps only that part of the take for playback and BVH export. The recording itself is never cut. The kept part must be at least half a second (otherwise `badTrim`). Replies with a `trimmed` event |
-| `export` | `kind`: `take`, `id`, `format`: `bvh` or `json`; or `kind`: `scan`, `format`: `stl`, `obj`, `ply` or `preview` | Replies with a download link. Exports run in the background, so the page's other messages carry on meanwhile, and only one runs at a time (a second gets `exportFailed`). BVH files are made on request and saved next to the take. Scan files are made from the model as it is now (scanning pauses only while the mesh is read out); `preview` makes a lighter PLY in `captures/scans/preview` for the page's 3D view |
+| `export` | `kind`: `take`, `id`, `format`: `bvh` or `json`; or `kind`: `scan`, `format`: `stl`, `obj`, `ply` or `preview`, with optional `clean` (remove small floating pieces; true unless false is given) and `removeFloor` (false unless true is given) | Replies with a download link. Exports run in the background, so the page's other messages carry on meanwhile, and only one runs at a time (a second gets `exportFailed`). BVH files are made on request and saved next to the take. Scan files are made from the model as it is now (scanning pauses only while the mesh is read out); `preview` makes a lighter PLY in `captures/scans/preview` for the page's 3D view |
 | `fusion.start` | none | Starts scanning, or carries on after a pause. Builds the Fusion volume for the current preset on first use |
 | `fusion.pause` | none | Stops merging frames; the model is kept |
 | `fusion.reset` | none | Clears the model and starts again from where the Kinect is now. Keeps scanning if it was |
@@ -236,6 +236,7 @@ Each take is `captures/mocap/<id>.json`, and the page loads it from `/captures/m
 
 `captures/scans/scan-YYYYMMDD-HHMMSS-<preset>.<stl|obj|ply>`; one scan can be exported in all three formats under the same name.
 
+- Clean-up (optional, on export): `clean` drops connected pieces with under 2% of the biggest piece's triangles (and any under 50); `removeFloor` finds the lowest height where many flat, upward-facing triangles sit and removes the flat triangles within 3 cm of it. The export's `note` says what was removed.
 - Placed to open the right way up: unmirrored (the Kinect's depth picture is a mirror image), levelled using the accelerometer reading from when the scan started, standing on the ground (lowest point at 0), centred, and facing the front view.
 - **STL:** binary, millimetres, Z up. For Windows 3D Viewer and 3D printing. No colour.
 - **OBJ:** text, metres, Y up, shared vertices. With colour capture, each vertex line carries red, green and blue (0 to 1), which Blender reads.

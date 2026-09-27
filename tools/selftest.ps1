@@ -295,6 +295,17 @@ try {
     $quiet = @(Collect $c 4 | Where-Object { -not $_.Binary -and $_.Text -match '"type":"fusion"' }).Count
     Check "An unwatched scanner sends status only every 2 seconds (issue #4)" { @(($quiet -le 3), "$quiet status messages in 4 s") }
 
+    # Issue #12: clean-up removes the mock room's floor and any small pieces, and the model still exports
+    Send $c '{"type":"export","v":1,"kind":"scan","format":"ply","clean":false}'
+    $raw = WaitFor $c '"type":"(export|error)"' 60
+    Send $c '{"type":"export","v":1,"kind":"scan","format":"ply","clean":true,"removeFloor":true}'
+    $cleaned = WaitFor $c '"type":"(export|error)"' 60
+    Check "Removing the floor on export works and leaves a model (issue #12)" {
+        $before = [int](([regex]::Match("$($raw.note)", '^([\d,]+) triangles').Groups[1].Value) -replace ',', '')
+        $after = [int](([regex]::Match("$($cleaned.note)", '^([\d,]+) triangles').Groups[1].Value) -replace ',', '')
+        @(($cleaned.note -match 'Removed the floor' -and $after -gt 1000 -and $after -lt $before), "$before triangles raw, $after cleaned: $($cleaned.note)")
+    }
+
     foreach ($format in 'stl', 'obj', 'ply') {
         Send $c ('{"type":"export","v":1,"kind":"scan","format":"' + $format + '"}')
         $reply = WaitFor $c '"type":"(export|error)"' 60

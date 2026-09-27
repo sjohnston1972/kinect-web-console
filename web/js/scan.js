@@ -108,7 +108,7 @@
 
   function exportAs(format) {
     $('scan-note').textContent = format === 'preview' ? 'Building the 3D model…' : `Saving ${format.toUpperCase()}… (big scans take a few seconds)`;
-    Connection.send({ type: 'export', kind: 'scan', format });
+    Connection.send({ type: 'export', kind: 'scan', format, clean: $('scan-clean').checked, removeFloor: $('scan-nofloor').checked });
   }
 
   // Hands-free: the gesture presses Start or Pause, with a beep for each
