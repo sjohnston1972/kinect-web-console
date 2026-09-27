@@ -288,6 +288,7 @@ The bridge starts, serves the page, opens the WebSocket, and reports status. Moc
 | No DirectX 11 graphics card | Fusion runs slowly on the CPU | CPU fallback with a warning and a smaller preset |
 | BVH axis or rotation order differs from Blender's | Imported skeleton twists or faces the wrong way | Test with a T-pose take in Phase 4. Add an axis option if needed |
 | Windows needs a URL reservation for the server | App fails to start | One-time command documented in SETUP.md |
+| A running VMware virtual machine takes part of the Kinect over USB | Sensor reports "NotPowered" and the green light stays off | Disconnect the device from the VM (steps in SETUP.md). The bridge's fault help mentions VMware |
 | Another program is using the Kinect | Bridge cannot open the sensor | Red status with a message to close other Kinect apps |
 | Sunlight or other infrared sources | Noisy or missing depth | Noted in the README |
 

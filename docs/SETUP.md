@@ -53,6 +53,10 @@ The bridge program links to these files. They were found on disk, not assumed.
 
 **Troubleshooting:** if Device Manager shows only "Xbox NUI Motor" and no camera, the Kinect is getting USB but not mains power. Check the adapter's wall plug. The Kinect only shows its motor to the PC until mains power reaches it.
 
+**Troubleshooting: VMware.** VMware Workstation is installed on this PC. While a virtual machine is running, VMware can take part of the Kinect (usually the audio part) into the virtual machine. The Kinect library then reports the sensor as "NotPowered" and the green light stays off, even though power is fine. Device Manager shows a "VMware USB Device" in place of a Kinect entry. Fix: in VMware, open VM, then Removable Devices, and choose "Disconnect (Connect to host)" for any Microsoft, Xbox NUI or Kinect entry. To stop it happening again, set VMware's Edit, Preferences, USB option to connect new devices to the host.
+
+**Last check (27 Sep 2026):** sensor status Connected, colour 30 fps, depth about 27 fps in the first 3 seconds, tilt motor reading 13 degrees.
+
 ## 6. Web address reservation
 
 The bridge serves the page at `http://localhost:8765/`. Windows lets a normal user listen on a `localhost` address without a reservation, so no administrator command is expected. If Phase 1 finds otherwise, the one-time command goes here.
