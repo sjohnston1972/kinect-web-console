@@ -55,7 +55,7 @@ The bridge program links to these files. They were found on disk, not assumed.
 
 **Troubleshooting: VMware.** VMware Workstation is installed on this PC. While a virtual machine is running, VMware can take part of the Kinect (usually the audio part) into the virtual machine. The Kinect library then reports the sensor as "NotPowered" and the green light stays off, even though power is fine. Device Manager shows a "VMware USB Device" in place of a Kinect entry. Fix: in VMware, open VM, then Removable Devices, and choose "Disconnect (Connect to host)" for any Microsoft, Xbox NUI or Kinect entry. To stop it happening again, set VMware's Edit, Preferences, USB option to connect new devices to the host.
 
-**Last check (27 Sep 2026):** sensor status Connected, colour 30 fps, depth about 27 fps in the first 3 seconds, tilt motor reading 13 degrees.
+**Last check (27 Sep 2026):** sensor status Connected, colour 30 fps, depth about 27 fps in the first 3 seconds, tilt motor reading 13 degrees. Skeleton tracking followed one person at 30 frames per second for 20 seconds, head about 1.3 m from the sensor.
 
 ## 6. Web address reservation
 
