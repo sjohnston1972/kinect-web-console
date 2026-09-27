@@ -220,9 +220,9 @@ Seven phases, built in order. At the end of each, Claude Code commits to Git, st
 
 Claude Code installs the build tools, finds the Kinect library files on disk, checks the graphics card for DirectX 11, and writes docs/SETUP.md.
 
-- [ ] Steven's hardware check (Environment and hardware section) passes
-- [ ] `dotnet --version` and `git --version` both work
-- [ ] SETUP.md records the paths of the Kinect and Fusion library files
+- [x] Steven's hardware check (Environment and hardware section) passes
+- [x] `dotnet --version` and `git --version` both work
+- [x] SETUP.md records the paths of the Kinect and Fusion library files
 
 ### Phase 1: Bridge and mock sensor
 
