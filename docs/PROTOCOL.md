@@ -189,7 +189,7 @@ Each take is `captures/mocap/<id>.json`, and the page loads it from `/captures/m
 `captures/mocap/<id>.bvh`, made by `export` with `format: "bvh"`. For Blender: File, Import, Motion Capture (.bvh), default settings.
 
 - One person: the one tracked in the most frames. Standing takes only (seated takes have no hips or legs).
-- Units are metres, Y up, in the Kinect's axes; the person faces -Z, towards the Kinect.
+- Units are metres, Y up. The take is placed for Blender: levelled using the floor the Kinect detected (which undoes the Kinect's tilt), standing on the floor at height 0, centred on where the hips usually are, and turned so the person faces Blender's front view. Only the root is moved and turned, so the motion itself is unchanged.
 - The root `Hips` sits at the hip centre, with position and rotation channels. Every other joint is one Kinect bone, named for the body part (`LowerSpine`, `UpperSpine`, `Neck`, `CollarLeft`, `UpperArmLeft`, `ForearmLeft`, `HandLeft`, `PelvisLeft`, `ThighLeft`, `ShinLeft`, `FootLeft`, and the same on the right). Each starts where its parent bone ends, along the parent's +Y, so its rotation is exactly the SDK's hierarchical rotation.
 - Rotation channels are `Zrotation Xrotation Yrotation`. Bone lengths are each bone's middle length over the take.
 - Frames are evened out to exactly 30 a second; a joint missing from a frame keeps its last rotation.

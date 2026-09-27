@@ -63,6 +63,7 @@ namespace KinectBridge.Mocap
             var lengths = BoneLengths(poses);
             var order = DepthFirstOrder();
             var frames = Resample(poses);
+            PlaceOnFloor(frames, take.TryGetValue("floor", out var f) ? f as object[] : null);
 
             var bvh = new StringBuilder();
             bvh.AppendLine("HIERARCHY");
@@ -224,6 +225,50 @@ namespace KinectBridge.Mocap
                 result.Add(pose);
             }
             return result;
+        }
+
+        /// <summary>
+        /// Moves the whole take so it is easy to work with in Blender, without changing the motion itself:
+        /// 1. Level: the Kinect is usually tilted, which tilts everything it records. The floor it detected
+        ///    tells us by how much, so the take is turned until that floor is flat.
+        /// 2. Stand on the floor: the take is raised so the floor is at height 0 (the Kinect records from its own height).
+        /// 3. Face the front: the take is turned half a circle, so the person faces Blender's front view
+        ///    rather than showing their back.
+        /// 4. Centre: the hips' usual position over the take is above the middle of the scene.
+        /// Only the root (the hips) is moved and turned; every other bone hangs from it, so it all follows.
+        /// </summary>
+        static void PlaceOnFloor(List<Pose> frames, object[] floor)
+        {
+            var level = Quat.Identity;
+            double floorHeight;
+            if (floor != null && floor.Length == 4 && Convert.ToDouble(floor[1]) > 0.5)
+            {
+                var normal = new Vec3(Convert.ToDouble(floor[0]), Convert.ToDouble(floor[1]), Convert.ToDouble(floor[2]));
+                var size = normal.Length;
+                level = Quat.Between(normal, Vec3.Up);
+                floorHeight = -Convert.ToDouble(floor[3]) / size;   // after levelling, the floor sits at this height
+            }
+            else
+            {
+                // No floor seen: use the lowest foot in the take instead
+                floorHeight = frames.SelectMany(p => new[] { p.Position[Joints.FootLeft], p.Position[Joints.FootRight] })
+                    .Where(v => v != null).Select(v => v.Value.Y).DefaultIfEmpty(-1).Min();
+            }
+
+            var turn = new Quat(0, 1, 0, 0);   // half a circle about the vertical
+            var whole = turn * level;
+            // Centre on where the hips usually are, not the first frame, which is often mid-walk into position
+            var hips = frames.Select(p => whole.Rotate(p.Position[Joints.HipCenter].Value)).ToList();
+            double Middle(IEnumerable<double> values) { var s = values.OrderBy(v => v).ToList(); return s[s.Count / 2]; }
+            var shift = new Vec3(-Middle(hips.Select(h => h.X)), -floorHeight, -Middle(hips.Select(h => h.Z)));
+
+            foreach (var pose in frames)
+            {
+                for (int j = 0; j < Joints.Count; j++)
+                    if (pose.Position[j] != null) pose.Position[j] = whole.Rotate(pose.Position[j].Value) + shift;
+                if (pose.Rotation[Joints.HipCenter] != null)
+                    pose.Rotation[Joints.HipCenter] = whole * pose.Rotation[Joints.HipCenter].Value;
+            }
         }
 
         /// <summary>
