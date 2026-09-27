@@ -177,9 +177,10 @@
         <div class="frame stale" id="scan-canvas-frame">
           <canvas id="scan-canvas" width="640" height="480"></canvas>
           <div class="no-signal">The model appears here once scanning starts</div>
+          <div class="canvas-note" id="scan-canvas-note"></div>
           <div class="lost-banner" id="scan-lost" hidden>
             <strong>Tracking lost</strong>
-            <span>The Kinect moved too fast, or it cannot see enough of the model. Move it back to where the picture last looked right, and hold still. Or start again:</span>
+            <span>The Kinect moved too fast, or it cannot see enough of the model. Move it back to where the picture last looked right, and hold still. Or start again:<em id="scan-lost-why"></em></span>
             <button id="scan-lost-reset" class="button small">Reset scan</button>
           </div>
         </div>
@@ -201,6 +202,12 @@
         <label title="Part of a room, less detail"><input type="radio" name="scan-preset" value="room"><span>Room</span></label>
       </div>
       <p class="muted small" id="scan-preset-text"></p>
+      <div class="coverage" title="How much of the Kinect's view is inside the scanning range. Fusion needs a good share to keep track.">
+        <span class="small">In range</span>
+        <div class="meter"><div id="scan-coverage-bar"></div></div>
+        <span class="small" id="scan-coverage">--</span>
+      </div>
+      <p class="small warn-text" id="scan-coverage-hint" hidden></p>
       <label class="check" title="Colours go into the PLY and OBJ files. Takes effect from the next frame."><input type="checkbox" id="scan-colour"> Capture colour</label>
 
       <h2>Scan</h2>

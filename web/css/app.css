@@ -374,3 +374,10 @@ dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .lost-banner[hidden] { display: none; }
 .lost-banner strong { font-size: 18px; }
 .warn-text { color: var(--red); }
+.coverage { display: flex; align-items: center; gap: 8px; }
+.coverage .meter { flex: 1; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.coverage .meter div { height: 100%; width: 0; background: var(--green); transition: width .3s; }
+.coverage .meter div.low { background: var(--red); }
+.lost-banner em { display: block; font-style: normal; margin-top: 4px; }
+.canvas-note { position: absolute; top: 10px; left: 10px; padding: 3px 10px; border-radius: 6px; background: rgba(0, 0, 0, .6); color: #fff; font-size: 12px; }
+.canvas-note:empty { display: none; }

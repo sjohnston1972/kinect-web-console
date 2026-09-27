@@ -11,6 +11,17 @@
   let modelLoaded = false;
 
   const previewDrawnAt = FrameView.attach($('scan-canvas'), 4, 'fusion');
+  // Before a scan starts, the same area shows the live depth picture, so the Kinect can be aimed
+  const aimDrawnAt = FrameView.attach($('scan-canvas'), 2, 'depth');
+  let aiming = null;
+
+  function updateAiming(state) {
+    const aim = state === 'idle';
+    if (aim === aiming) return;
+    aiming = aim;
+    Tabs.setStreams('scan', aim ? ['fusion', 'depth'] : ['fusion']);
+    $('scan-canvas-note').textContent = aim ? 'Aiming: live depth picture. The model replaces it when scanning starts.' : '';
+  }
 
   function setView(name) {
     view = name;
@@ -63,8 +74,18 @@
     $('scan-warning').hidden = !(s.processorWarning || s.error);
     $('scan-warning').textContent = s.error || s.processorWarning || '';
 
+    // How much of the view is inside the scanning range, with advice when it is too little
+    const coverage = sensorReady ? s.inRange : 0;
+    $('scan-coverage').textContent = sensorReady ? `${coverage}%` : '--';
+    $('scan-coverage-bar').style.width = `${Math.min(100, coverage)}%`;
+    $('scan-coverage-bar').classList.toggle('low', !!s.hint);
+    $('scan-coverage-hint').hidden = !s.hint;
+    $('scan-coverage-hint').textContent = s.hint || '';
+    $('scan-lost-why').textContent = s.hint || '';
+
     $('scan-hint').hidden = scanning || hasScan;
-    $('scan-canvas-frame').classList.toggle('stale', performance.now() - previewDrawnAt() > 2000);
+    const lastPicture = Math.max(previewDrawnAt(), aiming ? aimDrawnAt() : 0);
+    $('scan-canvas-frame').classList.toggle('stale', performance.now() - lastPicture > 2000);
 
     const list = $('scan-files');
     list.innerHTML = '';
@@ -88,7 +109,7 @@
     Connection.send({ type: 'export', kind: 'scan', format });
   }
 
-  Connection.on('fusion', (msg) => { status = msg; render(); });
+  Connection.on('fusion', (msg) => { status = msg; updateAiming(msg.state); render(); });
 
   Connection.on('export', async (msg) => {
     if (msg.kind !== 'scan') return;

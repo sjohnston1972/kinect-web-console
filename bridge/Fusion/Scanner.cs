@@ -397,6 +397,49 @@ namespace KinectBridge.Fusion
 
         // ----- Status -----
 
+        const int KinectNearestMm = 800;   // the Xbox 360 Kinect cannot measure anything closer
+        const double EnoughInRange = 0.15;  // below this share of the picture, Fusion struggles to lock on
+
+        /// <summary>
+        /// How much of the newest depth picture falls inside the preset's scanning range, and how much is too close
+        /// to measure. Fusion needs a good share of the picture in range to keep track of where the Kinect is.
+        /// </summary>
+        (double inRange, double tooClose) Coverage(ScanPreset preset)
+        {
+            var depth = pump.BorrowDepth();
+            if (depth == null) return (0, 0);
+            try
+            {
+                int near = (int)(Math.Max(preset.MinDepth, KinectNearestMm / 1000f) * 1000);
+                int far = (int)(Math.Min(preset.MaxDepth, preset.StartDistance + preset.SizeZ) * 1000);
+                int inRange = 0, tooClose = 0, total = 0;
+                // Every 4th pixel each way is plenty for a percentage
+                for (int y = 0; y < Height; y += 4)
+                    for (int x = 0; x < Width; x += 4)
+                    {
+                        int mm = depth.Depth[y * Width + x];
+                        total++;
+                        if (mm >= near && mm <= far) inRange++;
+                        else if (mm > 0 && mm < KinectNearestMm) tooClose++;
+                    }
+                return (inRange / (double)total, tooClose / (double)total);
+            }
+            finally
+            {
+                depth.Release();
+            }
+        }
+
+        /// <summary>Plain-English advice when too little is in range, or null when it looks fine.</summary>
+        static string CoverageHint(ScanPreset p, double inRange, double tooClose)
+        {
+            if (inRange >= EnoughInRange) return null;
+            var range = $"{Math.Max(0.8, p.StartDistance):0.0} to {Math.Min(p.MaxDepth, p.StartDistance + p.SizeZ):0.0} m";
+            if (tooClose > 0.3)
+                return $"Too close: much of the picture is nearer than 0.8 m, which the Kinect cannot measure. Move back so what you are scanning is {range} from the Kinect.";
+            return $"Very little is in the scanning range ({range} from the Kinect for the {p.Label} preset). Point the Kinect at what you are scanning, from that distance, or pick a bigger preset.";
+        }
+
         public string Message()
         {
             State s;
@@ -415,6 +458,9 @@ namespace KinectBridge.Fusion
                     fpsClock.Restart();
                 }
             }
+
+            var current = presets[preset];
+            var (inRange, tooClose) = sensor.State == SensorState.Ready ? Coverage(current) : (0.0, 0.0);
 
             return Json.Serialize(new Dictionary<string, object>
             {
@@ -437,6 +483,9 @@ namespace KinectBridge.Fusion
                 ["error"] = error,
                 ["scanId"] = id,
                 ["files"] = RecentFiles(),
+                ["inRange"] = (int)Math.Round(inRange * 100),
+                ["tooClose"] = (int)Math.Round(tooClose * 100),
+                ["hint"] = sensor.State == SensorState.Ready ? CoverageHint(current, inRange, tooClose) : null,
             });
         }
 
