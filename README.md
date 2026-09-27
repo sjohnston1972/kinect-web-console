@@ -79,6 +79,6 @@ Double-click `selftest.cmd`. It builds its own copy of the app, runs it with the
 - Only one program can use the Kinect at a time. Close the Microsoft sample apps before starting this one.
 - If VMware is running, it can take the Kinect. `docs/SETUP.md` explains the fix.
 - Sunlight and other infrared sources make the depth picture noisy.
-- Settings (port, captures folder, picture quality) live in `settings.json`.
+- Settings (port, captures folder, picture quality, scan presets) live in `settings.json`, which you can edit by hand. Choices made on the page (tracking mode, smoothing, people highlight, scan preset and colour) are remembered in `preferences.json`; delete it to go back to the defaults.
 - Logs are in the `logs` folder, capped at 1 MB per file with the three most recent older files kept.
 - `tools\look.ps1` grabs what the Kinect sees right now (colour and depth pictures in `captures\look`, plus a summary of distances and people). It lets someone help check a set-up remotely. Run it while the bridge is running: `powershell -File tools\look.ps1`.

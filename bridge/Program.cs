@@ -21,8 +21,8 @@ namespace KinectBridge
     ///   --mock                 use the fake sensor instead of the Kinect
     ///   --no-browser           do not open the page automatically
     ///   --port N               use port N instead of the one in settings.json
-    ///   --data-folder PATH     keep captures and logs in PATH instead of the project folder, and leave
-    ///                          settings.json untouched (the self-test uses this so it never touches real captures)
+    ///   --data-folder PATH     keep captures, logs and preferences in PATH instead of the project folder
+    ///                          (the self-test uses this so it never touches real captures or choices)
     /// </summary>
     static class Program
     {
@@ -50,7 +50,7 @@ namespace KinectBridge
             if (dataFolder != null)
             {
                 settings.CapturesFolder = Path.Combine(Path.GetFullPath(dataFolder), "captures");
-                settings.ReadOnly = true;
+                settings.IsSelfTest = true;
             }
             Console.Title = "Kinect Web Console" + (mock ? " (mock mode)" : "");
             Log.Info($"Kinect Web Console starting, {(mock ? "mock mode" : "real Kinect")}, folder {root}");
@@ -61,16 +61,22 @@ namespace KinectBridge
             var hub = new MessageHub();
             var tilt = new TiltController(sensor);
             var pump = new StreamPump(sensor, hub, settings);
+            // Choices made on the page last time (preferences.json)
+            var prefs = Preferences.Load(Path.Combine(dataFolder ?? root, "preferences.json"));
             var skeletonSettings = new SkeletonSettings();
+            if (SkeletonSettings.TryParseMode(prefs.SkeletonMode, out var mode)) skeletonSettings.Mode = mode;
+            if (SkeletonSettings.TryParseSmoothing(prefs.SkeletonSmoothing, out var smoothing)) skeletonSettings.Smoothing = smoothing;
+            pump.HighlightPeople = prefs.PeopleHighlight;
             sensor.ApplySkeletonSettings(skeletonSettings);
             var skeletons = new SkeletonPump(sensor, hub);
             var status = new StatusReporter(sensor, hub, pump, tilt, skeletons, skeletonSettings);
-            var takes = new TakeLibrary(Path.Combine(settings.CapturesPath, "mocap"), useRecycleBin: !settings.ReadOnly);
+            var takes = new TakeLibrary(Path.Combine(settings.CapturesPath, "mocap"), useRecycleBin: !settings.IsSelfTest);
             var recorder = new Recorder(sensor, hub, takes, skeletonSettings);
             hub.Greetings.Add(() => recorder.Message());
             var scanner = new Scanner(sensor, pump, skeletons, hub, settings);
+            scanner.Restore(prefs.ScanPreset, prefs.ScanColour);
             hub.Greetings.Add(() => scanner.Message());
-            Commands.Register(hub, sensor, tilt, pump, skeletonSettings, status.Push, recorder, takes, scanner);
+            Commands.Register(hub, sensor, tilt, pump, skeletonSettings, status.Push, recorder, takes, scanner, prefs);
             var server = new WebServer(settings, hub);
 
             try

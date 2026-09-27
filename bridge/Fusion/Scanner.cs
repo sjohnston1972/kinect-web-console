@@ -152,6 +152,16 @@ namespace KinectBridge.Fusion
             return null;
         }
 
+        /// <summary>Puts back last run's preset and colour setting, before anything is scanned.</summary>
+        public void Restore(string preset, bool colourOn)
+        {
+            lock (gate)
+            {
+                if (preset != null && presets.ContainsKey(preset)) presetName = preset;
+                colour = colourOn;
+            }
+        }
+
         public void SetColour(bool on)
         {
             lock (gate) colour = on;

@@ -10,3 +10,6 @@ obj/
 # Log files written by the bridge
 logs/
 *.log
+
+# Choices made on the page, remembered between runs (written by the app)
+preferences.json

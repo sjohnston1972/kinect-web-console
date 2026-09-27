@@ -85,7 +85,8 @@ C:\local cc projects\kinect\
 ├── SPEC.md                This spec
 ├── run.cmd                Double-click to start the bridge and open the page
 ├── run-mock.cmd           The same, with the fake sensor
-├── settings.json          Port, captures folder, stream quality
+├── settings.json          Port, captures folder, stream quality, scan presets (edited by hand; the app never rewrites it)
+├── preferences.json       Choices made on the page, remembered between runs (written by the app, excluded from Git)
 ├── bridge/                The C# program that talks to the Kinect
 │   ├── KinectBridge.csproj   The build recipe: target and references
 │   ├── Program.cs            Start point: reads settings, starts everything

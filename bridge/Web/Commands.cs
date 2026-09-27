@@ -16,7 +16,7 @@ namespace KinectBridge.Web
     static class Commands
     {
         public static void Register(MessageHub hub, ISensor sensor, TiltController tilt, StreamPump pump,
-            SkeletonSettings skeletonSettings, Action pushStatus, Recorder recorder, TakeLibrary takes, Scanner scanner)
+            SkeletonSettings skeletonSettings, Action pushStatus, Recorder recorder, TakeLibrary takes, Scanner scanner, Preferences prefs)
         {
             hub.On("sensor.reconnect", (client, msg) => sensor.Reconnect());
 
@@ -36,6 +36,8 @@ namespace KinectBridge.Web
                 if (msg.TryGetValue("peopleHighlight", out var value) && value is bool on)
                 {
                     pump.HighlightPeople = on;
+                    prefs.PeopleHighlight = on;
+                    prefs.Save();
                     Log.Info($"People highlight {(on ? "on" : "off")}");
                 }
             });
@@ -66,6 +68,9 @@ namespace KinectBridge.Web
                     updated = skeletonSettings.Copy();
                 }
                 sensor.ApplySkeletonSettings(updated);
+                prefs.SkeletonMode = updated.ModeName;
+                prefs.SkeletonSmoothing = updated.SmoothingName;
+                prefs.Save();
                 Log.Info($"Skeleton tracking: {updated.ModeName}, smoothing {updated.SmoothingName}");
                 pushStatus();
             });
@@ -141,12 +146,20 @@ namespace KinectBridge.Web
             hub.On("fusion.reset", (client, msg) => scanner.Reset());
             hub.On("fusion.preset", (client, msg) =>
             {
-                var refusal = scanner.SetPreset(msg.TryGetValue("preset", out var p) ? p as string : null);
-                if (refusal != null) MessageHub.SendError(client, "badSetting", refusal);
+                var name = msg.TryGetValue("preset", out var p) ? p as string : null;
+                var refusal = scanner.SetPreset(name);
+                if (refusal != null) { MessageHub.SendError(client, "badSetting", refusal); return; }
+                prefs.ScanPreset = name;
+                prefs.Save();
             });
             hub.On("fusion.colour", (client, msg) =>
             {
-                if (msg.TryGetValue("on", out var on) && on is bool b) scanner.SetColour(b);
+                if (msg.TryGetValue("on", out var on) && on is bool b)
+                {
+                    scanner.SetColour(b);
+                    prefs.ScanColour = b;
+                    prefs.Save();
+                }
                 else MessageHub.SendError(client, "badSetting", "fusion.colour needs on: true or false.");
             });
 

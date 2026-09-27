@@ -17,8 +17,8 @@ namespace KinectBridge
         /// <summary>The "fusion" section, read by FusionPresets. Null if settings.json has none.</summary>
         public Dictionary<string, object> Fusion;
 
-        /// <summary>True when settings.json must not be written (a self-test run with its own data folder).</summary>
-        public bool ReadOnly;
+        /// <summary>True for a self-test run, which keeps everything in its own throwaway data folder.</summary>
+        public bool IsSelfTest;
 
         /// <summary>The project folder: the one holding settings.json and web/.</summary>
         public string RootFolder;

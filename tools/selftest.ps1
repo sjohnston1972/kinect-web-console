@@ -119,10 +119,14 @@ try {
     Check "The bridge builds" { if ($built) { $true } else { ($buildLog | Select-String "error" | Select-Object -First 1).Line } }
     if (-not $built) { throw "Stopping: the build failed" }
 
-    $bridge = Start-Process "$work\bin\KinectBridge.exe" -ArgumentList "--mock", "--no-browser", "--port", $Port, "--data-folder", "$work\data" `
-        -WorkingDirectory $root -PassThru -WindowStyle Hidden -RedirectStandardOutput "$work\bridge-output.txt"
-    $up = $false
-    for ($i = 0; $i -lt 40 -and -not $up; $i++) { Start-Sleep -Milliseconds 250; try { $up = (HttpStatus "$origin/").Status -eq 200 } catch { } }
+    # Starts the test bridge and waits until it answers. Returns true if it did.
+    function Start-Bridge($logName) {
+        $script:bridge = Start-Process "$work\bin\KinectBridge.exe" -ArgumentList "--mock", "--no-browser", "--port", $Port, "--data-folder", "$work\data" `
+            -WorkingDirectory $root -PassThru -WindowStyle Hidden -RedirectStandardOutput "$work\$logName"
+        for ($i = 0; $i -lt 40; $i++) { Start-Sleep -Milliseconds 250; try { if ((HttpStatus "$origin/").Status -eq 200) { return $true } } catch { } }
+        return $false
+    }
+    $up = Start-Bridge "bridge-output.txt"
     Check "The bridge starts and serves the page" { if ($up) { $true } else { "nothing answered on port $Port within 10 seconds" } }
     if (-not $up) { throw "Stopping: the bridge did not start" }
 
@@ -304,6 +308,28 @@ try {
         $null = Js "1"   # collect any last errors
         Check "No script errors on any tab" { if ($problems.Count) { "$($problems.Count): " + ($problems | Select-Object -First 2) -join ' | ' } else { $true } }
         Close $cdp
+        Stop-Process -Id $edge.Id -ErrorAction SilentlyContinue
+    }
+
+    # ----- Choices survive a restart (issue #1) -----
+    Write-Host "Remembered choices" -ForegroundColor Cyan
+    $c = New-Client
+    $null = WaitFor $c '"type":"status"' 3
+    foreach ($m in '{"type":"skeleton.settings","v":1,"mode":"seated","smoothing":"heavy"}', '{"type":"live.settings","v":1,"peopleHighlight":true}',
+                   '{"type":"fusion.preset","v":1,"preset":"person"}', '{"type":"fusion.colour","v":1,"on":true}') { Send $c $m }
+    Start-Sleep -Seconds 1.5   # preferences are saved half a second after the last change
+    Close $c
+    Stop-Process -Id $bridge.Id; $bridge.WaitForExit(5000) | Out-Null
+    $up = Start-Bridge "bridge-output-restart.txt"
+    Check "The bridge restarts" { $up }
+    if ($up) {
+        $c = New-Client
+        $status = WaitFor $c '"type":"status"' 3
+        $fusion = WaitFor $c '"type":"fusion"' 3
+        Check "Skeleton mode and smoothing are remembered" { @(($status.skeleton.mode -eq 'seated' -and $status.skeleton.smoothing -eq 'heavy'), "$($status.skeleton.mode), $($status.skeleton.smoothing)") }
+        Check "People highlight is remembered" { $status.live.peopleHighlight -eq $true }
+        Check "Scan preset and colour are remembered" { @(($fusion.preset -eq 'person' -and $fusion.colour -eq $true), "$($fusion.preset), colour $($fusion.colour)") }
+        Close $c
     }
 }
 catch {
@@ -312,7 +338,7 @@ catch {
 finally {
     if ($edge) { Stop-Process -Id $edge.Id -ErrorAction SilentlyContinue; Get-Process msedge -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -match [regex]::Escape($work) } | Stop-Process -ErrorAction SilentlyContinue }
     if ($bridge) { Stop-Process -Id $bridge.Id -ErrorAction SilentlyContinue }
-    $bridgeErrors = if (Test-Path "$work\bridge-output.txt") { @(Get-Content "$work\bridge-output.txt" | Select-String " ERROR ") } else { @() }
+    $bridgeErrors = @(Get-ChildItem "$work\bridge-output*.txt" -ErrorAction SilentlyContinue | ForEach-Object { Get-Content $_.FullName } | Select-String " ERROR ")
     if ($bridgeErrors.Count) { Report "No errors in the bridge log" $false ($bridgeErrors[0].Line) } else { Report "No errors in the bridge log" $true $null }
 }
 
