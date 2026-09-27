@@ -1,0 +1,12 @@
+# Saved scans, recordings and snapshots stay on this PC only (spec: Storage)
+captures/
+
+# Build output
+bin/
+obj/
+*.user
+.vs/
+
+# Log files written by the bridge
+logs/
+*.log
