@@ -226,6 +226,7 @@ Each take is `captures/mocap/<id>.json`, and the page loads it from `/captures/m
 - `framesIntegrated` is how many depth frames have been merged into this scan. `fps` is frames processed per second while scanning.
 - `processor` says where Kinect Fusion runs. `processorWarning` is set when it had to fall back to the processor (slow, and at most 256 voxels per side). `error` explains an automatic pause, for example when the Kinect was unplugged.
 - `presets` lists all three with their size in metres (width, height, depth), detail in millimetres per voxel, and the distance from the Kinect to the front of the scanned box.
+- `placement` says where the box sits for this scan, in words (for example "standing on the floor, 0.74 m below the Kinect").
 - `files` lists the 12 newest exports in `captures/scans`.
 - `inRange` is the percentage of the newest depth picture inside the preset's scanning range; `tooClose` the percentage nearer than 0.8 m, which the Kinect cannot measure. `hint` is plain-English advice when less than 15% is in range, otherwise null.
 
@@ -250,6 +251,7 @@ In `settings.json` under `fusion.presets`, one entry each for `object`, `person`
 | `startDistance` | Metres from the Kinect to the front of the box |
 | `minDepth`, `maxDepth` | Depth readings outside this range (metres) are ignored |
 | `meshVoxelStep` | Export detail, as above |
+| `onFloor` | true to stand the box on the floor (using the floor the skeleton tracker sees, 5 cm below it), false to centre it on where the Kinect points |
 | `label` | The name on the page |
 
 Changes take effect when the bridge restarts.
