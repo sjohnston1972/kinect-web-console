@@ -17,6 +17,9 @@ namespace KinectBridge
         /// <summary>The "fusion" section, read by FusionPresets. Null if settings.json has none.</summary>
         public Dictionary<string, object> Fusion;
 
+        /// <summary>True when settings.json must not be written (a self-test run with its own data folder).</summary>
+        public bool ReadOnly;
+
         /// <summary>The project folder: the one holding settings.json and web/.</summary>
         public string RootFolder;
 
@@ -60,13 +63,16 @@ namespace KinectBridge
         /// </summary>
         public static string FindRootFolder()
         {
-            var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
-            while (dir != null)
+            foreach (var start in new[] { AppDomain.CurrentDomain.BaseDirectory, Environment.CurrentDirectory })
             {
-                if (File.Exists(Path.Combine(dir.FullName, "settings.json")) ||
-                    File.Exists(Path.Combine(dir.FullName, "web", "index.html")))
-                    return dir.FullName;
-                dir = dir.Parent;
+                var dir = new DirectoryInfo(start);
+                while (dir != null)
+                {
+                    if (File.Exists(Path.Combine(dir.FullName, "settings.json")) ||
+                        File.Exists(Path.Combine(dir.FullName, "web", "index.html")))
+                        return dir.FullName;
+                    dir = dir.Parent;
+                }
             }
             throw new DirectoryNotFoundException("Could not find the project folder (the one with settings.json and web).");
         }

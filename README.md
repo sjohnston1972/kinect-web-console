@@ -69,6 +69,10 @@ The light in the top left of the page:
 
 The Status tab also shows the tilt angle, whether the Kinect is level, the bridge log, and a Reconnect button.
 
+## Checking everything works
+
+Double-click `selftest.cmd`. It builds its own copy of the app, runs it with the fake sensor, and checks every feature: the page and its security, all the streams, skeletons, tilt, snapshots, motion capture and BVH, 3D scanning, and each tab in a real browser. It takes about a minute and ends with a list of PASS or FAIL. It is safe to run while the app is open, and never touches your captures or settings.
+
 ## Good to know
 
 - The page only works on this PC. Other devices on your network are refused.

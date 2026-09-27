@@ -18,8 +18,11 @@ namespace KinectBridge
     /// opens the page, then waits until the window is closed or Ctrl+C is pressed.
     ///
     /// Options:
-    ///   --mock        use the fake sensor instead of the Kinect
-    ///   --no-browser  do not open the page automatically
+    ///   --mock                 use the fake sensor instead of the Kinect
+    ///   --no-browser           do not open the page automatically
+    ///   --port N               use port N instead of the one in settings.json
+    ///   --data-folder PATH     keep captures and logs in PATH instead of the project folder, and leave
+    ///                          settings.json untouched (the self-test uses this so it never touches real captures)
     /// </summary>
     static class Program
     {
@@ -27,6 +30,8 @@ namespace KinectBridge
         {
             var mock = args.Contains("--mock");
             var openBrowser = !args.Contains("--no-browser");
+            var port = OptionValue(args, "--port");
+            var dataFolder = OptionValue(args, "--data-folder");
 
             string root;
             try
@@ -39,8 +44,14 @@ namespace KinectBridge
                 return Fail();
             }
 
-            Log.Init(Path.Combine(root, "logs"));
+            Log.Init(dataFolder != null ? Path.Combine(dataFolder, "logs") : Path.Combine(root, "logs"));
             var settings = AppSettings.Load(root);
+            if (port != null && int.TryParse(port, out var p)) settings.Port = p;
+            if (dataFolder != null)
+            {
+                settings.CapturesFolder = Path.Combine(Path.GetFullPath(dataFolder), "captures");
+                settings.ReadOnly = true;
+            }
             Console.Title = "Kinect Web Console" + (mock ? " (mock mode)" : "");
             Log.Info($"Kinect Web Console starting, {(mock ? "mock mode" : "real Kinect")}, folder {root}");
 
@@ -54,7 +65,7 @@ namespace KinectBridge
             sensor.ApplySkeletonSettings(skeletonSettings);
             var skeletons = new SkeletonPump(sensor, hub);
             var status = new StatusReporter(sensor, hub, pump, tilt, skeletons, skeletonSettings);
-            var takes = new TakeLibrary(Path.Combine(settings.CapturesPath, "mocap"));
+            var takes = new TakeLibrary(Path.Combine(settings.CapturesPath, "mocap"), useRecycleBin: !settings.ReadOnly);
             var recorder = new Recorder(sensor, hub, takes, skeletonSettings);
             hub.Greetings.Add(() => recorder.Message());
             var scanner = new Scanner(sensor, pump, skeletons, hub, settings);
@@ -134,6 +145,13 @@ namespace KinectBridge
             {
                 Log.Warn($"Could not open the browser ({ex.Message}). Open {address} yourself.");
             }
+        }
+
+        /// <summary>The value after an option such as "--port 8799", or null if the option is not given.</summary>
+        static string OptionValue(string[] args, string name)
+        {
+            var i = Array.IndexOf(args, name);
+            return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
         }
 
         /// <summary>Asks whatever is on the port for its page and checks the title is ours.</summary>

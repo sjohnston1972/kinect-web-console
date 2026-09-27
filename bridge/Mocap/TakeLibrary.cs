@@ -28,12 +28,15 @@ namespace KinectBridge.Mocap
     class TakeLibrary
     {
         readonly string folder;
+        readonly bool useRecycleBin;
         readonly object gate = new object();
         readonly Dictionary<string, TakeInfo> takes = new Dictionary<string, TakeInfo>(StringComparer.OrdinalIgnoreCase);
 
-        public TakeLibrary(string folder)
+        /// <param name="useRecycleBin">False for self-test runs, whose throwaway takes should not fill the Recycle Bin.</param>
+        public TakeLibrary(string folder, bool useRecycleBin = true)
         {
             this.folder = folder;
+            this.useRecycleBin = useRecycleBin;
             Directory.CreateDirectory(folder);
             foreach (var file in Directory.GetFiles(folder, "*.json"))
             {
@@ -117,7 +120,10 @@ namespace KinectBridge.Mocap
                 if (!takes.ContainsKey(id)) throw new FileNotFoundException("That take no longer exists.");
                 foreach (var path in new[] { JsonPath(id), BvhPath(id) })
                     if (File.Exists(path))
-                        FileSystem.DeleteFile(path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
+                    {
+                        if (useRecycleBin) FileSystem.DeleteFile(path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
+                        else File.Delete(path);
+                    }
                 takes.Remove(id);
             }
         }
