@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using Microsoft.Kinect;
+using KinectBridge.Skeleton;
 
 namespace KinectBridge.Sensor
 {
@@ -30,6 +31,7 @@ namespace KinectBridge.Sensor
         public event Action StateChanged;
         public event Action<ColourFrame> ColourFrameReady;
         public event Action<DepthFrame> DepthFrameReady;
+        public event Action<SkeletonData> SkeletonFrameReady;
 
         public void Start()
         {
@@ -176,11 +178,12 @@ namespace KinectBridge.Sensor
             {
                 // Colour and depth at 640x480, 30 frames a second. Skeleton tracking is switched on too:
                 // without it the SDK does not mark which depth pixels belong to a person.
-                sensor.ColorStream.Enable(ColorImageFormat.RgbResolution640x480Fps30);
-                sensor.DepthStream.Enable(DepthImageFormat.Resolution640x480Fps30);
-                sensor.SkeletonStream.Enable();
+                sensor.ColorStream.Enable(ColourFormat);
+                sensor.DepthStream.Enable(DepthFormat);
+                ConfigureSkeleton(sensor);
                 sensor.ColorFrameReady += OnColourFrame;
                 sensor.DepthFrameReady += OnDepthFrame;
+                sensor.SkeletonFrameReady += OnSkeletonFrame;
 
                 sensor.Start();
                 active = sensor;
@@ -212,6 +215,98 @@ namespace KinectBridge.Sensor
         {
             sensor.ColorFrameReady -= OnColourFrame;
             sensor.DepthFrameReady -= OnDepthFrame;
+            sensor.SkeletonFrameReady -= OnSkeletonFrame;
+        }
+
+        // ----- Skeleton tracking -----
+
+        const ColorImageFormat ColourFormat = ColorImageFormat.RgbResolution640x480Fps30;
+        const DepthImageFormat DepthFormat = DepthImageFormat.Resolution640x480Fps30;
+
+        SkeletonSettings skeletonSettings = new SkeletonSettings();
+        Microsoft.Kinect.Skeleton[] skeletonScratch;   // reused every frame; skeleton frames arrive on one thread
+
+        // Smoothing presets, from Microsoft's guidance for SDK 1.x ("Skeletal Joint Smoothing White Paper").
+        // Light: some smoothing with little lag. Heavy: very smooth, but joints trail fast movement.
+        static readonly TransformSmoothParameters LightSmoothing = new TransformSmoothParameters
+            { Smoothing = 0.5f, Correction = 0.5f, Prediction = 0.5f, JitterRadius = 0.05f, MaxDeviationRadius = 0.04f };
+        static readonly TransformSmoothParameters HeavySmoothing = new TransformSmoothParameters
+            { Smoothing = 0.7f, Correction = 0.3f, Prediction = 1.0f, JitterRadius = 1.0f, MaxDeviationRadius = 1.0f };
+
+        public void ApplySkeletonSettings(SkeletonSettings settings)
+        {
+            lock (gate)
+            {
+                skeletonSettings = settings.Copy();
+                if (active != null && active.IsRunning) ConfigureSkeleton(active);
+            }
+        }
+
+        // Smoothing 0 tells the SDK to pass joints through untouched
+        static readonly TransformSmoothParameters NoSmoothing = new TransformSmoothParameters
+            { Smoothing = 0f, Correction = 0f, Prediction = 0f, JitterRadius = 0f, MaxDeviationRadius = 0f };
+
+        /// <summary>
+        /// Sets tracking mode and smoothing. Calling Enable again on a running stream swaps the smoothing
+        /// in place; switching the stream off first would lose tracked people for about 2 seconds.
+        /// </summary>
+        void ConfigureSkeleton(KinectSensor sensor)
+        {
+            var stream = sensor.SkeletonStream;
+            stream.TrackingMode = skeletonSettings.Mode == TrackingMode.Seated ? SkeletonTrackingMode.Seated : SkeletonTrackingMode.Default;
+            switch (skeletonSettings.Smoothing)
+            {
+                case Smoothing.Light: stream.Enable(LightSmoothing); break;
+                case Smoothing.Heavy: stream.Enable(HeavySmoothing); break;
+                default: stream.Enable(NoSmoothing); break;
+            }
+        }
+
+        void OnSkeletonFrame(object sender, SkeletonFrameReadyEventArgs e)
+        {
+            var sensor = (KinectSensor)sender;
+            using (var frame = e.OpenSkeletonFrame())
+            {
+                if (frame == null) return;
+                if (skeletonScratch == null || skeletonScratch.Length != frame.SkeletonArrayLength)
+                    skeletonScratch = new Microsoft.Kinect.Skeleton[frame.SkeletonArrayLength];
+                frame.CopySkeletonDataTo(skeletonScratch);
+
+                var data = new SkeletonData { Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() };
+                var floor = frame.FloorClipPlane;
+                if (floor != null && (floor.Item1 != 0 || floor.Item2 != 0 || floor.Item3 != 0))
+                    data.Floor = new[] { floor.Item1, floor.Item2, floor.Item3, floor.Item4 };
+
+                var mapper = sensor.CoordinateMapper;
+                for (int i = 0; i < skeletonScratch.Length; i++)
+                {
+                    var skeleton = skeletonScratch[i];
+                    if (skeleton == null || skeleton.TrackingState != SkeletonTrackingState.Tracked) continue;
+
+                    // The SDK marks depth pixels with player number = position in this array + 1
+                    var body = new Body { Id = skeleton.TrackingId, Player = i + 1 };
+                    foreach (Joint joint in skeleton.Joints)
+                    {
+                        if (joint.TrackingState == JointTrackingState.NotTracked) continue;
+                        // The coordinate mapper allows for the gap between the colour and depth cameras
+                        var colour = mapper.MapSkeletonPointToColorPoint(joint.Position, ColourFormat);
+                        var depth = mapper.MapSkeletonPointToDepthPoint(joint.Position, DepthFormat);
+                        body.Joints[(int)joint.JointType] = new BodyJoint
+                        {
+                            X = joint.Position.X, Y = joint.Position.Y, Z = joint.Position.Z,
+                            ColourX = colour.X, ColourY = colour.Y,
+                            DepthX = depth.X, DepthY = depth.Y,
+                            Inferred = joint.TrackingState == JointTrackingState.Inferred,
+                        };
+                    }
+                    data.Bodies.Add(body);
+                }
+
+                var listeners = SkeletonFrameReady;
+                if (listeners == null) return;
+                try { listeners(data); }
+                catch (Exception ex) { Log.Error("Skeleton handling failed: " + ex.Message); }
+            }
         }
 
         static SensorState FromSdkStatus(KinectStatus status)

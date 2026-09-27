@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using KinectBridge.Sensor;
+using KinectBridge.Skeleton;
 using KinectBridge.Streams;
 
 namespace KinectBridge.Web
@@ -12,7 +13,8 @@ namespace KinectBridge.Web
     /// </summary>
     static class Commands
     {
-        public static void Register(MessageHub hub, ISensor sensor, TiltController tilt, StreamPump pump)
+        public static void Register(MessageHub hub, ISensor sensor, TiltController tilt, StreamPump pump,
+            SkeletonSettings skeletonSettings, Action pushStatus)
         {
             hub.On("sensor.reconnect", (client, msg) => sensor.Reconnect());
 
@@ -34,6 +36,36 @@ namespace KinectBridge.Web
                     pump.HighlightPeople = on;
                     Log.Info($"People highlight {(on ? "on" : "off")}");
                 }
+            });
+
+            hub.On("skeleton.settings", (client, msg) =>
+            {
+                SkeletonSettings updated;
+                lock (skeletonSettings)
+                {
+                    if (msg.TryGetValue("mode", out var m))
+                    {
+                        if (!SkeletonSettings.TryParseMode(m as string, out var mode))
+                        {
+                            MessageHub.SendError(client, "badSetting", "Tracking mode must be standing or seated.");
+                            return;
+                        }
+                        skeletonSettings.Mode = mode;
+                    }
+                    if (msg.TryGetValue("smoothing", out var s))
+                    {
+                        if (!SkeletonSettings.TryParseSmoothing(s as string, out var smoothing))
+                        {
+                            MessageHub.SendError(client, "badSetting", "Smoothing must be off, light or heavy.");
+                            return;
+                        }
+                        skeletonSettings.Smoothing = smoothing;
+                    }
+                    updated = skeletonSettings.Copy();
+                }
+                sensor.ApplySkeletonSettings(updated);
+                Log.Info($"Skeleton tracking: {updated.ModeName}, smoothing {updated.SmoothingName}");
+                pushStatus();
             });
 
             hub.On("snapshot", (client, msg) =>

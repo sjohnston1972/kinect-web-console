@@ -7,17 +7,27 @@ using System.Runtime.InteropServices;
 namespace KinectBridge.Sensor
 {
     /// <summary>
-    /// Draws the mock sensor's pretend room: a back wall 3.5 m away, a floor, a box on the left,
-    /// and a person-sized shape walking side to side 2 m away. Colour and depth use the same
-    /// camera maths, so the person lines up in both, as it would with the real Kinect.
+    /// Draws the mock sensor's pretend room: a back wall 3.5 m away, a floor, a box on the left 1.5 m away,
+    /// and two people: player 1 walks side to side 2 m away, player 2 stands further back and waves.
+    /// Colour, depth and the mock skeletons (MockSkeleton) all use the same camera maths,
+    /// so everything lines up, as it does with the real Kinect.
     /// </summary>
     class MockScene : IDisposable
     {
-        const int W = 640, H = 480;
-        const double Focal = 571;            // pixels, close to the Kinect's depth camera at 640x480
-        const double CameraHeight = 1.0;     // metres above the floor
+        public const int W = 640, H = 480;
+        public const double Focal = 571;            // pixels, close to the Kinect's depth camera at 640x480
+        public const double CameraHeight = 1.0;     // metres above the floor
         const short WallMm = 3500;
-        const double PersonZ = 2.0, PersonHalfWidth = 0.25, PersonTop = 1.75;
+        const short BoxMm = 1500;
+        const double HalfWidth = 0.25, Height = 1.75;
+
+        /// <summary>A person-shaped oval standing on the floor.</summary>
+        public struct Person
+        {
+            public double X, Z;    // metres: sideways from centre, distance from the Kinect
+            public byte Player;
+            public Color Colour;
+        }
 
         readonly Bitmap canvas = new Bitmap(W, H, PixelFormat.Format32bppRgb);
         readonly Graphics g;
@@ -29,8 +39,21 @@ namespace KinectBridge.Sensor
             g.SmoothingMode = SmoothingMode.AntiAlias;
         }
 
-        /// <summary>Where the walking person is, in metres left or right of centre.</summary>
-        public static double PersonX(double seconds) => 0.9 * Math.Sin(seconds * 0.6);
+        /// <summary>Where both people are at this moment, furthest first.</summary>
+        public static Person[] People(double seconds)
+        {
+            return new[]
+            {
+                new Person { X = -0.8, Z = 2.8, Player = 2, Colour = Color.FromArgb(80, 140, 230) },
+                new Person { X = 0.9 * Math.Sin(seconds * 0.6), Z = 2.0, Player = 1, Colour = Color.FromArgb(230, 120, 70) },
+            };
+        }
+
+        /// <summary>Where a point in the room (metres) lands in the picture, in pixels.</summary>
+        public static PointF Project(double x, double y, double z)
+        {
+            return new PointF((float)(W / 2 + Focal * x / z), (float)(H / 2 - Focal * y / z));
+        }
 
         public void DrawColour(byte[] bgra, double seconds)
         {
@@ -45,12 +68,10 @@ namespace KinectBridge.Sensor
             for (int i = 0; i < bars.Length; i++)
                 using (var b = new SolidBrush(bars[i])) g.FillRectangle(b, i * W / bars.Length, 0, W / bars.Length + 1, 28);
 
-            // The box, drawn where DrawDepth puts it
+            // Furthest first, so nearer things cover them. The box is nearest of all.
+            foreach (var person in People(seconds))
+                using (var body = new SolidBrush(person.Colour)) g.FillEllipse(body, Outline(person));
             using (var box = new SolidBrush(Color.FromArgb(190, 140, 60))) g.FillRectangle(box, BoxRect());
-
-            // The person
-            var p = PersonRect(seconds);
-            using (var body = new SolidBrush(Color.FromArgb(230, 120, 70))) g.FillEllipse(body, p);
 
             g.DrawString("MOCK SENSOR  " + DateTime.Now.ToString("HH:mm:ss.f"), labelFont, Brushes.White, 12, 40);
 
@@ -62,13 +83,13 @@ namespace KinectBridge.Sensor
         public void DrawDepth(short[] depth, byte[] player, double seconds)
         {
             var box = BoxRect();
-            var person = PersonRect(seconds);
-            double cx = person.X + person.Width / 2.0, cy = person.Y + person.Height / 2.0;
-            double rx = person.Width / 2.0, ry = person.Height / 2.0;
+            var people = People(seconds);
+            var outlines = new RectangleF[people.Length];
+            for (int p = 0; p < people.Length; p++) outlines[p] = Outline(people[p]);
 
             for (int v = 0; v < H; v++)
             {
-                // Floor distance from the camera for this row, or the wall if the floor is further away
+                // Floor distance for this row, or the wall if the floor is further away
                 short background = WallMm;
                 if (v > H / 2)
                 {
@@ -82,19 +103,21 @@ namespace KinectBridge.Sensor
                     short d = background;
                     byte who = 0;
 
-                    if (box.Contains(u, v)) d = 1500;
-
-                    // The person is rounded: nearest at the middle, curving away at the edges
-                    double nx = (u - cx) / rx, ny = (v - cy) / ry;
-                    double r2 = nx * nx + ny * ny;
-                    if (r2 < 1)
+                    // Each person is rounded: nearest in the middle, curving away at the edges. Nearest thing wins.
+                    for (int p = 0; p < people.Length; p++)
                     {
-                        d = (short)(PersonZ * 1000 - 150 * Math.Sqrt(1 - r2));
-                        who = 1;
+                        var o = outlines[p];
+                        double nx = (u - (o.X + o.Width / 2)) / (o.Width / 2);
+                        double ny = (v - (o.Y + o.Height / 2)) / (o.Height / 2);
+                        double r2 = nx * nx + ny * ny;
+                        if (r2 >= 1) continue;
+                        var personMm = (short)(people[p].Z * 1000 - 150 * Math.Sqrt(1 - r2));
+                        if (personMm < d) { d = personMm; who = people[p].Player; }
                     }
+                    if (box.Contains(u, v) && BoxMm < d) { d = BoxMm; who = 0; }
 
                     // The real sensor has no reading at the far left edge; copy that so the page handles gaps
-                    if (u < 8) d = 0;
+                    if (u < 8) { d = 0; who = 0; }
 
                     depth[i] = d;
                     player[i] = who;
@@ -104,14 +127,12 @@ namespace KinectBridge.Sensor
 
         static Rectangle BoxRect() => new Rectangle(70, 290, 110, 120);
 
-        static RectangleF PersonRect(double seconds)
+        /// <summary>The oval a person covers in the picture: floor to head height, shoulder width.</summary>
+        static RectangleF Outline(Person p)
         {
-            var x = PersonX(seconds);
-            float left = (float)(W / 2 + Focal * (x - PersonHalfWidth) / PersonZ);
-            float right = (float)(W / 2 + Focal * (x + PersonHalfWidth) / PersonZ);
-            float top = (float)(H / 2 - Focal * (PersonTop - CameraHeight) / PersonZ);
-            float bottom = (float)(H / 2 + Focal * CameraHeight / PersonZ);
-            return new RectangleF(left, top, right - left, bottom - top);
+            var topLeft = Project(p.X - HalfWidth, Height - CameraHeight, p.Z);
+            var bottomRight = Project(p.X + HalfWidth, -CameraHeight, p.Z);
+            return new RectangleF(topLeft.X, topLeft.Y, bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y);
         }
 
         public void Dispose()

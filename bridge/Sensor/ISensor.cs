@@ -1,4 +1,5 @@
 using System;
+using KinectBridge.Skeleton;
 
 namespace KinectBridge.Sensor
 {
@@ -59,5 +60,14 @@ namespace KinectBridge.Sensor
 
         /// <summary>A new depth frame. Same rules as ColourFrameReady.</summary>
         event Action<DepthFrame> DepthFrameReady;
+
+        /// <summary>
+        /// A new skeleton frame, about 30 a second, with every tracked person's joints already mapped
+        /// onto the colour and depth pictures. Raised on the sensor's own thread.
+        /// </summary>
+        event Action<SkeletonData> SkeletonFrameReady;
+
+        /// <summary>Switches standing or seated tracking and the smoothing preset. Kept for the next time the sensor opens, too.</summary>
+        void ApplySkeletonSettings(SkeletonSettings settings);
     }
 }

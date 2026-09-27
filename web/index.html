@@ -89,8 +89,53 @@
   </section>
 
   <section class="tab-panel" data-panel="skeleton" hidden>
-    <div class="main-view placeholder"><p>Skeleton tracking arrives in Phase 3.</p></div>
-    <aside class="control-panel"><h2>Skeleton</h2><p class="muted">Controls arrive in Phase 3.</p></aside>
+    <div class="main-view skeleton-view" id="skeleton-view" data-view="overlay" data-picture="colour">
+      <figure class="stream single">
+        <div class="frame stale" id="skeleton-frame">
+          <canvas id="skeleton-colour-canvas" class="picture-colour" width="640" height="480"></canvas>
+          <canvas id="skeleton-depth-canvas" class="picture-depth" width="640" height="480"></canvas>
+          <canvas id="skeleton-overlay" class="overlay" width="640" height="480"></canvas>
+          <div class="no-signal">Waiting for pictures</div>
+        </div>
+      </figure>
+      <div class="cloud" id="skeleton-3d"></div>
+    </div>
+
+    <aside class="control-panel">
+      <h2>View</h2>
+      <div class="segmented" role="radiogroup" aria-label="How to show the skeleton">
+        <label><input type="radio" name="skeleton-view" value="overlay" checked><span>Over picture</span></label>
+        <label><input type="radio" name="skeleton-view" value="3d"><span>3D</span></label>
+      </div>
+      <div class="segmented" role="radiogroup" aria-label="Picture under the skeleton" id="skeleton-picture-group">
+        <label><input type="radio" name="skeleton-picture" value="colour" checked><span>Colour</span></label>
+        <label><input type="radio" name="skeleton-picture" value="depth"><span>Depth</span></label>
+      </div>
+
+      <h2>Tracking</h2>
+      <div class="segmented" role="radiogroup" aria-label="Tracking mode">
+        <label title="All 20 joints. Stand 1.5 to 3.5 m away with your whole body in view."><input type="radio" name="skeleton-mode" value="standing" id="mode-standing" checked><span>Standing</span></label>
+        <label title="10 upper-body joints, for sitting at a desk."><input type="radio" name="skeleton-mode" value="seated" id="mode-seated"><span>Seated</span></label>
+      </div>
+
+      <h2>Smoothing</h2>
+      <div class="segmented three" role="radiogroup" aria-label="Smoothing" title="Changing smoothing pauses tracking for under a second while the Kinect picks people up again.">
+        <label title="Raw joints: quickest, but jittery"><input type="radio" name="skeleton-smoothing" value="off"><span>Off</span></label>
+        <label title="Some smoothing, little lag"><input type="radio" name="skeleton-smoothing" value="light" checked><span>Light</span></label>
+        <label title="Very steady, but joints trail fast movement"><input type="radio" name="skeleton-smoothing" value="heavy"><span>Heavy</span></label>
+      </div>
+
+      <h2>People</h2>
+      <div class="people" id="skeleton-people"></div>
+      <p class="muted small">Faded, dashed joints are guesses: the Kinect cannot see them directly.</p>
+
+      <h2>Rates</h2>
+      <dl>
+        <dt>Skeletons</dt><dd id="skeleton-fps">--</dd>
+        <dt>Picture</dt><dd id="skeleton-picture-fps">--</dd>
+        <dt>Delay</dt><dd id="skeleton-delay">--</dd>
+      </dl>
+    </aside>
   </section>
 
   <section class="tab-panel" data-panel="mocap" hidden>
@@ -158,11 +203,15 @@
 <script src="js/connection.js"></script>
 <script src="js/notices.js"></script>
 <script src="js/depthcolours.js"></script>
+<script src="js/skeletonmodel.js"></script>
 <script src="js/app.js"></script>
+<script src="js/frameview.js"></script>
 <script src="js/status.js"></script>
 <script src="js/tilt.js"></script>
 <script src="js/live.js"></script>
+<script src="js/skeleton.js"></script>
 <script>Tabs.start();</script>
 <script type="module" src="js/pointcloud.js"></script>
+<script type="module" src="js/skeleton3d.js"></script>
 </body>
 </html>

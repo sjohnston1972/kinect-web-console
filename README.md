@@ -1,6 +1,6 @@
 # Kinect Web Console
 
-Use an Xbox 360 Kinect from a web page on this PC. The page shows live colour and depth pictures, a 3D point cloud, and the Kinect's status, and lets you tilt the Kinect and save snapshots. Skeleton tracking, motion capture and 3D scanning follow in later phases.
+Use an Xbox 360 Kinect from a web page on this PC. The page shows live colour and depth pictures, a 3D point cloud, and the Kinect's status, and lets you tilt the Kinect and save snapshots. It also tracks skeletons. Motion capture and 3D scanning follow in later phases.
 
 ## Start it
 
@@ -22,6 +22,15 @@ Close the black window, or click in it and press Ctrl+C.
 - **Rates:** pictures per second reaching the page, and how old each picture is when it arrives.
 
 **Tilt:** drag the slider in the top right and let go. The Kinect moves at most once a second and 15 times in 20 seconds, to protect its motor; the page says if it has to wait.
+
+## The Skeleton tab
+
+- Stand **1.5 to 3.5 m** from the Kinect, facing it, with your whole body in view. Moving your arms helps it pick you up. Up to 2 people are tracked at once, each in their own colour.
+- **Over picture** draws the skeleton on the colour or depth picture. **3D** shows it on its own, standing on the floor the Kinect detects (drag to orbit, as with the 3D points).
+- **Standing** tracks all 20 joints. **Seated** tracks the 10 upper-body joints, for sitting at a desk 1.2 to 2 m from the Kinect.
+- **Smoothing** steadies jittery joints: Off is quickest but shaky, Heavy is very steady but trails fast movement. Changing it pauses tracking for under a second.
+- Faded, dashed joints are ones the Kinect is guessing, such as a hand hidden behind your body.
+- Too close (under about 1.2 m), or the Kinect looking up at you steeply, and it will not track you. Tilt it level and step back.
 
 ## The status light
 

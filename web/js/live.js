@@ -2,23 +2,6 @@
 // people highlight, snapshots, and frame rates.
 'use strict';
 
-// Frame rate and delay counters, shared with the point cloud (pointcloud.js)
-const LiveStats = (() => {
-  const counts = {};
-  const delays = {};
-  function tick(stream, timestamp) {
-    counts[stream] = (counts[stream] || 0) + 1;
-    delays[stream] = Date.now() - timestamp;
-  }
-  // Returns frames counted since the last call, and clears the counts
-  function take() {
-    const result = { ...counts };
-    for (const key of Object.keys(counts)) counts[key] = 0;
-    return result;
-  }
-  return { tick, take, delays };
-})();
-
 (() => {
   const $ = (id) => document.getElementById(id);
   const VIEWS = {
@@ -32,42 +15,8 @@ const LiveStats = (() => {
 
   let view = 'both';
   let sensorReady = false;
-  const lastFrameAt = { colour: 0, depth: 0 };
-
-  // Draws JPEG frames onto a canvas. Decoding happens off the main thread (createImageBitmap).
-  // If a frame arrives while the last is still decoding, only the newest waiting one is kept.
-  function makeRenderer(canvas, stream) {
-    const context = canvas.getContext('2d');
-    let busy = false;
-    let waiting = null;
-
-    async function draw(frame) {
-      busy = true;
-      try {
-        const bitmap = await createImageBitmap(new Blob([frame.payload], { type: 'image/jpeg' }));
-        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-        bitmap.close();
-        lastFrameAt[stream] = performance.now();
-        LiveStats.tick(stream, frame.timestamp);
-      } catch (err) {
-        console.warn(`Could not show a ${stream} frame`, err);
-      }
-      busy = false;
-      if (waiting) {
-        const next = waiting;
-        waiting = null;
-        draw(next);
-      }
-    }
-
-    return (frame) => {
-      if (busy) waiting = frame;
-      else draw(frame);
-    };
-  }
-
-  Connection.on('stream:1', makeRenderer($('colour-canvas'), 'colour'));
-  Connection.on('stream:2', makeRenderer($('depth-canvas'), 'depth'));
+  const colourDrawnAt = FrameView.attach($('colour-canvas'), 1, 'colour');
+  const depthDrawnAt = FrameView.attach($('depth-canvas'), 2, 'depth');
 
   function buildLegend() {
     $('legend-bar').style.background = DepthColours.cssGradient();
@@ -119,6 +68,7 @@ const LiveStats = (() => {
 
   // Frame rates and delay, once a second. Also shows "waiting" over a picture that has stopped updating.
   function updateRates() {
+    if (Tabs.current !== 'live') return;   // the tab on screen owns the shared counters
     const counts = LiveStats.take();
     const text = (stream) => (VIEWS[view].includes(stream) ? `${counts[stream] || 0} fps` : 'off');
     $('fps-colour').textContent = text('colour');
@@ -129,8 +79,8 @@ const LiveStats = (() => {
     $('delay').textContent = delays.length ? `${Math.max(0, Math.round(Math.max(...delays)))} ms` : '--';
 
     const now = performance.now();
-    $('colour-figure').classList.toggle('stale', now - lastFrameAt.colour > NO_SIGNAL_MS);
-    $('depth-figure').classList.toggle('stale', now - lastFrameAt.depth > NO_SIGNAL_MS);
+    $('colour-figure').classList.toggle('stale', now - colourDrawnAt() > NO_SIGNAL_MS);
+    $('depth-figure').classList.toggle('stale', now - depthDrawnAt() > NO_SIGNAL_MS);
   }
 
   Connection.on('status', (msg) => {

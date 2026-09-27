@@ -72,6 +72,13 @@ namespace KinectBridge.Web
                 if (client.IsSubscribed(stream)) client.SendBinary(message, stream);
         }
 
+        /// <summary>Sends JSON to the browsers subscribed to that stream, newest-only (used for skeletons).</summary>
+        public void BroadcastToSubscribers(string stream, string json)
+        {
+            foreach (var client in Snapshot())
+                if (client.IsSubscribed(stream)) client.SendText(json, stream);
+        }
+
         /// <summary>True if any open browser tab wants this stream. Checked before doing any encoding work.</summary>
         public bool AnySubscribed(string stream)
         {

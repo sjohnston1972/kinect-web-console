@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Threading;
+using KinectBridge.Skeleton;
 
 namespace KinectBridge.Sensor
 {
@@ -8,7 +9,7 @@ namespace KinectBridge.Sensor
     /// A fake Kinect, used with --mock so the app can be built and tested with the Kinect unplugged.
     /// It pretends to start up, then sends 30 colour and depth frames a second of a simple room
     /// (MockScene draws them), and has a pretend tilt motor that the accelerometer follows.
-    /// A walking skeleton is added in Phase 3.
+    /// Skeletons for the two pretend people come from MockSkeleton.
     /// </summary>
     class MockSensor : ISensor
     {
@@ -18,6 +19,8 @@ namespace KinectBridge.Sensor
 
         readonly DateTime created = DateTime.UtcNow;
         readonly MockScene scene = new MockScene();
+        readonly MockSkeleton skeletons = new MockSkeleton();
+        volatile SkeletonSettings skeletonSettings = new SkeletonSettings();
         Timer startup;
         Thread frameThread;
         volatile bool stopping;
@@ -30,6 +33,12 @@ namespace KinectBridge.Sensor
         public event Action StateChanged;
         public event Action<ColourFrame> ColourFrameReady;
         public event Action<DepthFrame> DepthFrameReady;
+        public event Action<SkeletonData> SkeletonFrameReady;
+
+        public void ApplySkeletonSettings(SkeletonSettings settings)
+        {
+            skeletonSettings = settings.Copy();
+        }
 
         public void Start()
         {
@@ -96,6 +105,8 @@ namespace KinectBridge.Sensor
                     var depth = DepthFrame.Rent();
                     scene.DrawDepth(depth.Depth, depth.Player, seconds);
                     Hand(DepthFrameReady, depth);
+
+                    SkeletonFrameReady?.Invoke(skeletons.Build(seconds, skeletonSettings));
                 }
                 catch (Exception ex)
                 {

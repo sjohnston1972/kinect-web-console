@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using KinectBridge.Sensor;
+using KinectBridge.Skeleton;
 using KinectBridge.Streams;
 
 namespace KinectBridge.Web
@@ -18,13 +19,17 @@ namespace KinectBridge.Web
         readonly MessageHub hub;
         readonly StreamPump pump;
         readonly TiltController tilt;
+        readonly SkeletonPump skeletons;
+        readonly SkeletonSettings skeletonSettings;
         readonly DateTime started = DateTime.UtcNow;
         Timer timer;
         volatile MotionReading lastMotion;   // cached, so a new browser gets status without a USB read
         volatile Dictionary<string, double> lastRates = new Dictionary<string, double>();
 
-        public StatusReporter(ISensor sensor, MessageHub hub, StreamPump pump, TiltController tilt)
+        public StatusReporter(ISensor sensor, MessageHub hub, StreamPump pump, TiltController tilt, SkeletonPump skeletons, SkeletonSettings skeletonSettings)
         {
+            this.skeletons = skeletons;
+            this.skeletonSettings = skeletonSettings;
             this.sensor = sensor;
             this.hub = hub;
             this.pump = pump;
@@ -43,7 +48,10 @@ namespace KinectBridge.Web
             try
             {
                 lastMotion = sensor.ReadMotion();
-                lastRates = pump.TakeRates();
+                var rates = pump.TakeRates();
+                var skeletonRate = skeletons.TakeRate();
+                if (rates.Count > 0) rates["skeletons"] = skeletonRate;
+                lastRates = rates;
                 Push();
             }
             catch (Exception ex)
@@ -52,7 +60,8 @@ namespace KinectBridge.Web
             }
         }
 
-        void Push()
+        /// <summary>Sends status now, rather than waiting for the next second. Used after a setting changes.</summary>
+        public void Push()
         {
             hub.Broadcast(BuildJson(), "status");
         }
@@ -88,8 +97,14 @@ namespace KinectBridge.Web
                 },
                 fps = lastRates,   // frames per second arriving from the sensor, per stream
                 live = new { peopleHighlight = pump.HighlightPeople },
+                skeleton = SkeletonSettingsMessage(),
                 uptimeSeconds = (int)(DateTime.UtcNow - started).TotalSeconds
             });
+        }
+
+        object SkeletonSettingsMessage()
+        {
+            lock (skeletonSettings) return new { mode = skeletonSettings.ModeName, smoothing = skeletonSettings.SmoothingName };
         }
 
         static double Degrees(double radians) => radians * 180 / Math.PI;

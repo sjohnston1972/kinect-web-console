@@ -249,10 +249,10 @@ The bridge starts, serves the page, opens the WebSocket, and reports status. Moc
 
 ### Phase 3: Skeleton tracking
 
-- [ ] The overlay lines up with Steven's body on both colour and depth
+- [x] The overlay lines up with Steven's body on both colour and depth
 - [ ] Two people are tracked at once, drawn in different colours
 - [ ] Seated mode tracks the upper body while sitting at the desk
-- [ ] Changing smoothing visibly changes the jitter
+- [x] Changing smoothing visibly changes the jitter
 
 ### Phase 4: Motion capture
 
